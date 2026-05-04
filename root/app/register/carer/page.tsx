@@ -15,6 +15,7 @@ export default function CarerRegisterPage() {
                   <h2 className="fw-bold text-primary mb-2">
                     Carer Registration
                   </h2>
+
                   <p className="text-muted mb-4">
                     Complete your basic details and carer onboarding information.
                   </p>
@@ -209,10 +210,10 @@ export default function CarerRegisterPage() {
                         <select className="form-select">
                           <option>Select age range</option>
                           <option>Under 18</option>
-                          <option>18–29</option>
-                          <option>30–40</option>
-                          <option>41–60</option>
-                          <option>61–80</option>
+                          <option>18-29</option>
+                          <option>30-40</option>
+                          <option>41-60</option>
+                          <option>61-80</option>
                           <option>Over 80</option>
                         </select>
                       </div>
@@ -240,10 +241,10 @@ export default function CarerRegisterPage() {
                         <select className="form-select">
                           <option>Select duration</option>
                           <option>Less than 1 year</option>
-                          <option>1–3 years</option>
-                          <option>3–5 years</option>
-                          <option>5–7 years</option>
-                          <option>7–10 years</option>
+                          <option>1-3 years</option>
+                          <option>3-5 years</option>
+                          <option>5-7 years</option>
+                          <option>7-10 years</option>
                           <option>Over 10 years</option>
                         </select>
                       </div>
@@ -277,10 +278,17 @@ export default function CarerRegisterPage() {
                       </label>
                     </div>
 
-                    <button type="submit" className="btn btn-primary w-100 py-2">
+                    <a href="/carer/dashboard" className="btn btn-primary w-100 py-2">
                       Create Carer Account
-                    </button>
+                    </a>
                   </form>
+
+                  <p className="text-center text-muted mt-4 mb-0">
+                    Already have an account?{" "}
+                    <a href="/login" className="text-primary fw-semibold">
+                      Login here
+                    </a>
+                  </p>
                 </div>
               </div>
             </div>
