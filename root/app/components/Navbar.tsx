@@ -1,15 +1,17 @@
+import Link from "next/link";
+
 export default function Navbar() {
   return (
     <nav className="navbar bg-white shadow-sm sticky-top">
       <div className="container d-flex justify-content-between align-items-center">
-        <a className="navbar-brand fw-bold text-primary mb-0" href="/">
+        <Link className="navbar-brand fw-bold text-primary mb-0" href="/">
           CareAble
-        </a>
+        </Link>
 
         <div className="d-flex align-items-center gap-3">
-          <a className="nav-link d-none d-md-block" href="/">
+          <Link className="nav-link d-none d-md-block" href="/">
             Home
-          </a>
+          </Link>
 
           <a className="nav-link d-none d-md-block" href="#about">
             About
@@ -23,13 +25,13 @@ export default function Navbar() {
             Contact
           </a>
 
-          <a className="btn btn-outline-primary px-4" href="/login">
+          <Link className="btn btn-outline-primary px-4" href="/login">
             Login
-          </a>
+          </Link>
 
-          <a className="btn btn-primary px-4" href="/register">
+          <Link className="btn btn-primary px-4" href="/register">
             Register
-          </a>
+          </Link>
         </div>
       </div>
     </nav>

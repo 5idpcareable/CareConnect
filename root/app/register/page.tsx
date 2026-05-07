@@ -1,5 +1,33 @@
+import Link from "next/link";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+
+const roles = [
+  {
+    id: 1,
+    title: "Carer",
+    description:
+      "Complete onboarding and access caregiving skill assessments.",
+    href: "/register/carer?role=1",
+    button: "Continue as Carer",
+  },
+  {
+    id: 2,
+    title: "Admin",
+    description:
+      "Manage users, assessments, roles, certificates, and dashboard data.",
+    href: "/register/admin?role=2",
+    button: "Continue as Admin",
+  },
+  {
+    id: 3,
+    title: "Employer",
+    description:
+      "Validate certificates and view recognised caregiving skills.",
+    href: "/register/employer?role=3",
+    button: "Continue as Employer",
+  },
+];
 
 export default function RegisterPage() {
   return (
@@ -18,47 +46,39 @@ export default function RegisterPage() {
           </div>
 
           <div className="row g-4 justify-content-center">
-            <div className="col-md-4">
-              <div className="card border-0 shadow rounded-4 h-100">
-                <div className="card-body p-4 text-center">
-                  <h3 className="fw-bold">Carer</h3>
-                  <p className="text-muted">
-                    Complete onboarding and access caregiving skill assessments.
-                  </p>
-                  <a href="/register/carer" className="btn btn-outline-primary w-100">
-                 Continue as Carer
-                  </a>
-                </div>
-              </div>
-            </div>
+            {roles.map((role) => (
+              <div className="col-md-4" key={role.id}>
+                <div className="card border-0 shadow rounded-4 h-100">
+                  <div className="card-body p-4 text-center d-flex flex-column">
+                    <div className="mb-3">
+                      <span className="badge bg-primary rounded-pill">
+                        Role ID: {role.id}
+                      </span>
+                    </div>
 
-            <div className="col-md-4">
-              <div className="card border-0 shadow rounded-4 h-100">
-                <div className="card-body p-4 text-center">
-                  <h3 className="fw-bold">Admin</h3>
-                  <p className="text-muted">
-                    Manage users, assessments, roles, and dashboard data.
-                  </p>
-                  <a href="/register/admin" className="btn btn-outline-primary w-100">
-                    Continue as Admin
-                  </a>
-                </div>
-              </div>
-            </div>
+                    <h3 className="fw-bold">{role.title}</h3>
 
-            <div className="col-md-4">
-              <div className="card border-0 shadow rounded-4 h-100">
-                <div className="card-body p-4 text-center">
-                  <h3 className="fw-bold">Employer</h3>
-                  <p className="text-muted">
-                    Validate certificates and view recognised caregiving skills.
-                  </p>
-                  <a href="/register/employer" className="btn btn-outline-primary w-100">
-                    Continue as Employer
-                  </a>
+                    <p className="text-muted flex-grow-1">
+                      {role.description}
+                    </p>
+
+                    <Link
+                      href={role.href}
+                      className="btn btn-outline-primary w-100"
+                    >
+                      {role.button}
+                    </Link>
+                  </div>
                 </div>
               </div>
-            </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-5">
+            <p className="text-muted mb-2">Already have an account?</p>
+            <Link href="/login" className="btn btn-primary px-4">
+              Login
+            </Link>
           </div>
         </div>
       </main>

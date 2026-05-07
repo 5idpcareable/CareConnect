@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Footer() {
   return (
     <footer className="bg-dark text-white pt-5 pb-4">
@@ -15,9 +17,9 @@ export default function Footer() {
             <h6 className="fw-bold">Links</h6>
             <ul className="list-unstyled">
               <li>
-                <a href="/" className="text-white-50 text-decoration-none">
+                <Link href="/" className="text-white-50 text-decoration-none">
                   Home
-                </a>
+                </Link>
               </li>
               <li>
                 <a href="#about" className="text-white-50 text-decoration-none">
@@ -54,7 +56,7 @@ export default function Footer() {
         <hr className="border-secondary my-4" />
 
         <div className="text-center text-white-50">
-          © 2026 CareAble. All rights reserved.
+          Copyright 2026 CareAble. All rights reserved.
         </div>
       </div>
     </footer>

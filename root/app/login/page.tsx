@@ -1,7 +1,46 @@
-import "bootstrap/dist/css/bootstrap.min.css";
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
+  const router = useRouter();
+
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setError("");
+    setLoading(true);
+
+    const formData = new FormData(event.currentTarget);
+
+    const response = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        email: formData.get("email"),
+        password: formData.get("password"),
+      }),
+    });
+
+    const data = await response.json();
+
+    setLoading(false);
+
+    if (!response.ok) {
+      setError(data.message || "Login failed.");
+      return;
+    }
+
+    router.push("/carer/dashboard");
+  }
+
   return (
     <main style={{ background: "#fbf7ff", minHeight: "100vh" }}>
       <div className="container py-5">
@@ -17,38 +56,37 @@ export default function LoginPage() {
                 </p>
               </div>
 
-              <form>
+              {error && <div className="alert alert-danger">{error}</div>}
+
+              <form onSubmit={handleLogin}>
                 <div className="mb-3">
                   <label className="form-label fw-semibold">Email Address</label>
                   <input
+                    name="email"
                     type="email"
                     className="form-control rounded-4"
                     placeholder="Enter your email"
+                    required
                   />
                 </div>
 
                 <div className="mb-3">
                   <label className="form-label fw-semibold">Password</label>
                   <input
+                    name="password"
                     type="password"
                     className="form-control rounded-4"
                     placeholder="Enter your password"
+                    required
                   />
                 </div>
 
-                <div className="d-flex justify-content-between align-items-center mb-4">
-                  <div className="form-check">
-                    <input className="form-check-input" type="checkbox" />
-                    <label className="form-check-label">Remember me</label>
-                  </div>
-
-                  <a href="#" className="text-decoration-none">
-                    Forgot password?
-                  </a>
-                </div>
-
-                <button type="submit" className="btn btn-primary w-100 rounded-pill py-2">
-                  Login
+                <button
+                  type="submit"
+                  className="btn btn-primary w-100 rounded-pill py-2"
+                  disabled={loading}
+                >
+                  {loading ? "Logging in..." : "Login"}
                 </button>
               </form>
 
@@ -58,13 +96,6 @@ export default function LoginPage() {
                   Create an account
                 </Link>
               </p>
-
-              <div className="bg-light rounded-4 p-3 mt-4">
-                <small className="text-secondary">
-                  Role-based access: Carers can complete assessments, admins can
-                  manage the system, and employers can validate certificates.
-                </small>
-              </div>
             </div>
 
             <div className="text-center mt-4">
@@ -77,4 +108,4 @@ export default function LoginPage() {
       </div>
     </main>
   );
-} 
+}
