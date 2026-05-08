@@ -3,8 +3,26 @@ import path from "path";
 
 export type UserRole = "carer" | "admin" | "employer";
 
+export type CarerProfile = {
+  workStatus?: string;
+  lookingForWork?: string;
+  appliedRecently?: string;
+  interestedIndustry?: string;
+  speaksOtherLanguage?: string;
+  language?: string;
+  referralSource?: string;
+  reasonForJoining?: string;
+  careRecipient?: string;
+  careRecipientAge?: string;
+  careCondition?: string;
+  careDuration?: string;
+  termsAccepted: boolean;
+  researchConsent: boolean;
+};
+
 export type User = {
   id: string;
+  roleId: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -13,6 +31,7 @@ export type User = {
   postcode: string;
   passwordHash: string;
   roles: UserRole[];
+  carerProfile?: CarerProfile;
   createdAt: string;
 };
 
@@ -31,7 +50,15 @@ const dbPath = path.join(process.cwd(), "data", "careable-db.json");
 
 async function readDb(): Promise<Database> {
   const file = await fs.readFile(dbPath, "utf-8");
-  return JSON.parse(file);
+  const db = JSON.parse(file) as Database;
+
+  return {
+    users: db.users.map((user) => ({
+      ...user,
+      roleId: user.roleId ?? "1",
+    })),
+    sessions: db.sessions,
+  };
 }
 
 async function writeDb(db: Database) {

@@ -29,6 +29,7 @@ export async function POST(request: Request) {
     message: "Login successful.",
     user: {
       id: user.id,
+      roleId: user.roleId,
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
@@ -39,6 +40,7 @@ export async function POST(request: Request) {
   response.cookies.set("careable_session", session.id, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     path: "/",
   });
 

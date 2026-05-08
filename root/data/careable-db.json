@@ -2,6 +2,7 @@
   "users": [
     {
       "id": "ff840084-1e2e-45aa-8940-681b490fe21f",
+      "roleId": "1",
       "firstName": "adsad",
       "lastName": "dasd",
       "email": "dasdsa@sdas.com",
