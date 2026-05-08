@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  phone        String
+  dateOfBirth  String
+  postcode     String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roles        UserRole[]
+  sessions     Session[]
+  carerProfile CarerProfile?
+}
+
+model Role {
+  id    Int    @id
+  name  String @unique
+
+  users UserRole[]
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId Int
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CarerProfile {
+  id                  String  @id @default(cuid())
+  userId              String  @unique
+  workStatus          String?
+  lookingForWork      String?
+  appliedRecently     String?
+  interestedIndustry  String?
+  speaksOtherLanguage String?
+  language            String?
+  referralSource      String?
+  reasonForJoining    String?
+  careRecipient       String?
+  careRecipientAge    String?
+  careCondition       String?
+  careDuration        String?
+  termsAccepted       Boolean @default(false)
+  researchConsent     Boolean @default(false)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

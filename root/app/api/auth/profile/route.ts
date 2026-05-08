@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { findSession, findUserById, updateUserProfile } from "@/app/lib/db";
+import { prisma } from "@/app/lib/prisma";
 
 export async function PUT(request: Request) {
   try {
@@ -14,21 +14,27 @@ export async function PUT(request: Request) {
       );
     }
 
-    const session = await findSession(sessionId);
+    const session = await prisma.session.findUnique({
+      where: {
+        id: sessionId,
+      },
+      include: {
+        user: {
+          include: {
+            roles: {
+              include: {
+                role: true,
+              },
+            },
+          },
+        },
+      },
+    });
 
-    if (!session) {
+    if (!session || !session.user) {
       return NextResponse.json(
         { message: "Invalid session." },
         { status: 401 }
-      );
-    }
-
-    const user = await findUserById(session.userId);
-
-    if (!user) {
-      return NextResponse.json(
-        { message: "User not found." },
-        { status: 404 }
       );
     }
 
@@ -43,26 +49,40 @@ export async function PUT(request: Request) {
       );
     }
 
-    const updatedUser = await updateUserProfile(user.id, {
-      firstName,
-      lastName,
-      phone,
-      dateOfBirth,
-      postcode,
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: session.user.id,
+      },
+      data: {
+        firstName,
+        lastName,
+        phone,
+        dateOfBirth,
+        postcode,
+      },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
     });
+
+    const primaryRole = updatedUser.roles[0];
 
     return NextResponse.json({
       message: "Profile updated successfully.",
       user: {
         id: updatedUser.id,
-        roleId: updatedUser.roleId,
+        roleId: primaryRole ? String(primaryRole.roleId) : "1",
         firstName: updatedUser.firstName,
         lastName: updatedUser.lastName,
         email: updatedUser.email,
         phone: updatedUser.phone,
         dateOfBirth: updatedUser.dateOfBirth,
         postcode: updatedUser.postcode,
-        roles: updatedUser.roles,
+        roles: updatedUser.roles.map((userRole) => userRole.role.name),
       },
     });
   } catch (error) {

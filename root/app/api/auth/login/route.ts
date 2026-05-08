@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createSession, findUserByEmail } from "@/app/lib/db";
 import { verifyPassword } from "@/app/lib/auth";
+import { prisma } from "@/app/lib/prisma";
 
 export async function POST(request: Request) {
   try {
@@ -15,7 +15,18 @@ export async function POST(request: Request) {
       );
     }
 
-    const user = await findUserByEmail(email);
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
 
     if (!user || !user.passwordHash) {
       return NextResponse.json(
@@ -33,17 +44,23 @@ export async function POST(request: Request) {
       );
     }
 
-    const session = await createSession(user.id);
+    const session = await prisma.session.create({
+      data: {
+        userId: user.id,
+      },
+    });
+
+    const primaryRole = user.roles[0];
 
     const response = NextResponse.json({
       message: "Login successful.",
       user: {
         id: user.id,
-        roleId: user.roleId || "1",
+        roleId: primaryRole ? String(primaryRole.roleId) : "1",
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        roles: user.roles,
+        roles: user.roles.map((userRole) => userRole.role.name),
       },
     });
 
