@@ -3,23 +3,6 @@ import path from "path";
 
 export type UserRole = "carer" | "admin" | "employer";
 
-export type CarerProfile = {
-  workStatus?: string;
-  lookingForWork?: string;
-  appliedRecently?: string;
-  interestedIndustry?: string;
-  speaksOtherLanguage?: string;
-  language?: string;
-  referralSource?: string;
-  reasonForJoining?: string;
-  careRecipient?: string;
-  careRecipientAge?: string;
-  careCondition?: string;
-  careDuration?: string;
-  termsAccepted: boolean;
-  researchConsent: boolean;
-};
-
 export type User = {
   id: string;
   roleId: string;
@@ -31,7 +14,6 @@ export type User = {
   postcode: string;
   passwordHash: string;
   roles: UserRole[];
-  carerProfile?: CarerProfile;
   createdAt: string;
 };
 
@@ -67,6 +49,7 @@ async function writeDb(db: Database) {
 
 export async function findUserByEmail(email: string) {
   const db = await readDb();
+
   return db.users.find(
     (user) => user.email.toLowerCase() === email.toLowerCase()
   );
@@ -74,6 +57,7 @@ export async function findUserByEmail(email: string) {
 
 export async function findUserById(id: string) {
   const db = await readDb();
+
   return db.users.find((user) => user.id === id);
 }
 
@@ -105,6 +89,7 @@ export async function createSession(userId: string) {
 
 export async function findSession(sessionId: string) {
   const db = await readDb();
+
   return db.sessions.find((session) => session.id === sessionId);
 }
 
@@ -114,4 +99,32 @@ export async function deleteSession(sessionId: string) {
   db.sessions = db.sessions.filter((session) => session.id !== sessionId);
 
   await writeDb(db);
+}
+
+export async function updateUserProfile(
+  userId: string,
+  updates: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    dateOfBirth: string;
+    postcode: string;
+  }
+) {
+  const db = await readDb();
+
+  const userIndex = db.users.findIndex((user) => user.id === userId);
+
+  if (userIndex === -1) {
+    throw new Error("User not found");
+  }
+
+  db.users[userIndex] = {
+    ...db.users[userIndex],
+    ...updates,
+  };
+
+  await writeDb(db);
+
+  return db.users[userIndex];
 }

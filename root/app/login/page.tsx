@@ -18,27 +18,33 @@ export default function LoginPage() {
 
     const formData = new FormData(event.currentTarget);
 
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email: formData.get("email"),
-        password: formData.get("password"),
-      }),
-    });
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          email: formData.get("email"),
+          password: formData.get("password"),
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    setLoading(false);
+      if (!response.ok) {
+        setError(data.message || "Login failed.");
+        return;
+      }
 
-    if (!response.ok) {
-      setError(data.message || "Login failed.");
-      return;
+      router.push("/carer/dashboard");
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/carer/dashboard");
   }
 
   return (
@@ -60,13 +66,16 @@ export default function LoginPage() {
 
               <form onSubmit={handleLogin}>
                 <div className="mb-3">
-                  <label className="form-label fw-semibold">Email Address</label>
+                  <label className="form-label fw-semibold">
+                    Email Address
+                  </label>
                   <input
                     name="email"
                     type="email"
                     className="form-control rounded-4"
                     placeholder="Enter your email"
                     required
+                    autoComplete="email"
                   />
                 </div>
 
@@ -78,6 +87,7 @@ export default function LoginPage() {
                     className="form-control rounded-4"
                     placeholder="Enter your password"
                     required
+                    autoComplete="current-password"
                   />
                 </div>
 

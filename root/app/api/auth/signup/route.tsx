@@ -102,22 +102,6 @@ export async function POST(request: Request) {
     postcode,
     passwordHash: hashPassword(password),
     roles: [selectedRole],
-    carerProfile: {
-      workStatus,
-      lookingForWork,
-      appliedRecently,
-      interestedIndustry,
-      speaksOtherLanguage,
-      language,
-      referralSource,
-      reasonForJoining,
-      careRecipient,
-      careRecipientAge,
-      careCondition,
-      careDuration,
-      termsAccepted,
-      researchConsent,
-    },
     createdAt: new Date().toISOString(),
   });
 

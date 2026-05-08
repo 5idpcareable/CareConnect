@@ -25,10 +25,13 @@ export async function GET() {
   return NextResponse.json({
     user: {
       id: user.id,
-      roleId: user.roleId,
+      roleId: user.roleId || "1",
       firstName: user.firstName,
       lastName: user.lastName,
       email: user.email,
+      phone: user.phone,
+      dateOfBirth: user.dateOfBirth,
+      postcode: user.postcode,
       roles: user.roles,
     },
   });
