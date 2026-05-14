@@ -4,11 +4,35 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+type User = {
+  id: string;
+  roleId?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roles: string[];
+};
+
 export default function LoginPage() {
   const router = useRouter();
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  function getRedirectPath(user: User) {
+    if (
+      user.roles.includes("admin") ||
+      user.roles.includes("super_admin")
+    ) {
+      return "/admin/dashboard";
+    }
+
+    if (user.roles.includes("carer")) {
+      return "/carer/dashboard";
+    }
+
+    return "/";
+  }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -38,7 +62,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/carer/dashboard");
+      router.push(getRedirectPath(data.user));
       router.refresh();
     } catch {
       setError("Something went wrong. Please try again.");

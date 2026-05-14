@@ -1,7 +1,81 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 
+type User = {
+  id: string;
+  roleId?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  roles: string[];
+};
+
 export default function Home() {
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    async function redirectIfLoggedIn() {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        const data = await response.json();
+        const user: User | null = data.user;
+
+        if (!user) {
+          setCheckingAuth(false);
+          return;
+        }
+
+        if (
+          user.roles.includes("admin") ||
+          user.roles.includes("super_admin")
+        ) {
+          window.location.href = "/admin/dashboard";
+          return;
+        }
+
+        if (user.roles.includes("carer")) {
+          window.location.href = "/carer/dashboard";
+          return;
+        }
+
+        setCheckingAuth(false);
+      } catch {
+        setCheckingAuth(false);
+      }
+    }
+
+    redirectIfLoggedIn();
+  }, []);
+
+  if (checkingAuth) {
+    return (
+      <>
+        <Navbar />
+
+        <main className="bg-light py-5" style={{ minHeight: "70vh" }}>
+          <div className="container">
+            <div className="alert alert-info mb-0">Loading...</div>
+          </div>
+        </main>
+
+        <Footer />
+      </>
+    );
+  }
+
   return (
     <>
       <Navbar />

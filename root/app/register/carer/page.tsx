@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
+import SignupFields from "../../components/SignupFields";
 
 export default function CarerRegisterPage() {
   const router = useRouter();
@@ -22,52 +23,58 @@ export default function CarerRegisterPage() {
 
     const formData = new FormData(event.currentTarget);
 
-    const response = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        roleId,
-        firstName: formData.get("firstName"),
-        lastName: formData.get("lastName"),
-        email: formData.get("email"),
-        phone: formData.get("phone"),
-        dateOfBirth: formData.get("dateOfBirth"),
-        postcode: formData.get("postcode"),
-        password: formData.get("password"),
-        repeatPassword: formData.get("repeatPassword"),
+    try {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          roleId,
+          firstName: formData.get("firstName"),
+          lastName: formData.get("lastName"),
+          email: formData.get("email"),
+          phone: formData.get("phone"),
+          dateOfBirth: formData.get("dateOfBirth"),
+          postcode: formData.get("postcode"),
+          password: formData.get("password"),
+          repeatPassword: formData.get("repeatPassword"),
 
-        workStatus: formData.get("workStatus"),
-        lookingForWork: formData.get("lookingForWork"),
-        appliedRecently: formData.get("appliedRecently"),
-        interestedIndustry: formData.get("interestedIndustry"),
+          workStatus: formData.get("workStatus"),
+          lookingForWork: formData.get("lookingForWork"),
+          appliedRecently: formData.get("appliedRecently"),
+          interestedIndustry: formData.get("interestedIndustry"),
 
-        speaksOtherLanguage: formData.get("speaksOtherLanguage"),
-        language: formData.get("language"),
+          speaksOtherLanguage: formData.get("speaksOtherLanguage"),
+          language: formData.get("language"),
 
-        referralSource: formData.get("referralSource"),
-        reasonForJoining: formData.get("reasonForJoining"),
-        careRecipient: formData.get("careRecipient"),
-        careRecipientAge: formData.get("careRecipientAge"),
-        careCondition: formData.get("careCondition"),
-        careDuration: formData.get("careDuration"),
+          referralSource: formData.get("referralSource"),
+          reasonForJoining: formData.get("reasonForJoining"),
+          careRecipient: formData.get("careRecipient"),
+          careRecipientAge: formData.get("careRecipientAge"),
+          careCondition: formData.get("careCondition"),
+          careDuration: formData.get("careDuration"),
 
-        termsAccepted: formData.get("termsAccepted") === "on",
-        researchConsent: formData.get("researchConsent") === "on",
-      }),
-    });
+          termsAccepted: formData.get("termsAccepted") === "on",
+          researchConsent: formData.get("researchConsent") === "on",
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    setLoading(false);
+      if (!response.ok) {
+        setError(data.message || "Sign up failed.");
+        return;
+      }
 
-    if (!response.ok) {
-      setError(data.message || "Sign up failed.");
-      return;
+      router.push("/carer/dashboard");
+      router.refresh();
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
-
-    router.push("/carer/dashboard");
   }
 
   return (
@@ -95,89 +102,7 @@ export default function CarerRegisterPage() {
                   {error && <div className="alert alert-danger">{error}</div>}
 
                   <form onSubmit={handleSignup}>
-                    <h5 className="fw-bold mb-3">Basic Information</h5>
-
-                    <div className="row g-3">
-                      <div className="col-md-6">
-                        <label className="form-label">First Name</label>
-                        <input
-                          name="firstName"
-                          type="text"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Last Name</label>
-                        <input
-                          name="lastName"
-                          type="text"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Email</label>
-                        <input
-                          name="email"
-                          type="email"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Phone Number</label>
-                        <input
-                          name="phone"
-                          type="tel"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Date of Birth</label>
-                        <input
-                          name="dateOfBirth"
-                          type="date"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Postcode</label>
-                        <input
-                          name="postcode"
-                          type="number"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Password</label>
-                        <input
-                          name="password"
-                          type="password"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-
-                      <div className="col-md-6">
-                        <label className="form-label">Repeat Password</label>
-                        <input
-                          name="repeatPassword"
-                          type="password"
-                          className="form-control"
-                          required
-                        />
-                      </div>
-                    </div>
+                    <SignupFields />
 
                     <hr className="my-4" />
 

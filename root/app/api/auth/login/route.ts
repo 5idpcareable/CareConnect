@@ -28,7 +28,40 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user) {
+      const adminRequest = await prisma.adminAccessRequest.findUnique({
+        where: {
+          email,
+        },
+      });
+
+      if (adminRequest?.status === "PENDING") {
+        return NextResponse.json(
+          {
+            message:
+              "Your admin access request is still pending super admin approval.",
+          },
+          { status: 403 }
+        );
+      }
+
+      if (adminRequest?.status === "REJECTED") {
+        return NextResponse.json(
+          {
+            message:
+              "Your admin access request was not approved. Please contact the project owner.",
+          },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json(
+        { message: "Invalid email or password." },
+        { status: 401 }
+      );
+    }
+
+    if (!user.passwordHash) {
       return NextResponse.json(
         { message: "Invalid email or password." },
         { status: 401 }

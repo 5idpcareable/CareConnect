@@ -53,6 +53,9 @@ export default function Navbar() {
   }
 
   const isLoggedIn = checkedAuth && user;
+  const isAdmin =
+    user?.roles.includes("admin") || user?.roles.includes("super_admin");
+  const isCarer = user?.roles.includes("carer");
 
   return (
     <nav className="bg-white shadow-sm sticky-top">
@@ -90,7 +93,44 @@ export default function Navbar() {
             </>
           )}
 
-          {isLoggedIn && user && (
+          {isLoggedIn && isAdmin && (
+            <>
+              <Link
+                className="text-decoration-none text-dark"
+                href="/admin/dashboard"
+              >
+                Admin Dashboard
+              </Link>
+
+              <Link
+                className="text-decoration-none text-dark"
+                href="/admin/questionnaires"
+              >
+                Questionnaires
+              </Link>
+
+              {user?.roles.includes("super_admin") && (
+                <Link
+                  className="text-decoration-none text-dark"
+                  href="/admin/access-requests"
+                >
+                  Admin Requests
+                </Link>
+              )}
+
+              <span className="text-muted small">{user?.firstName}</span>
+
+              <button
+                type="button"
+                className="btn btn-outline-danger btn-sm"
+                onClick={handleLogout}
+              >
+                Logout
+              </button>
+            </>
+          )}
+
+          {isLoggedIn && !isAdmin && isCarer && (
             <>
               <Link
                 className="text-decoration-none text-dark"
@@ -113,7 +153,7 @@ export default function Navbar() {
                 Assessment
               </Link>
 
-              <span className="text-muted small">{user.firstName}</span>
+              <span className="text-muted small">{user?.firstName}</span>
 
               <button
                 type="button"

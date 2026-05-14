@@ -40,6 +40,15 @@ async function main() {
     },
   });
 
+  await prisma.role.upsert({
+    where: { id: 4 },
+    update: { name: "super_admin" },
+    create: {
+      id: 4,
+      name: "super_admin",
+    },
+  });
+
   console.log("Roles seeded.");
 }
 
