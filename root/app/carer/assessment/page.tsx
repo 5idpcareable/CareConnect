@@ -37,19 +37,62 @@ type Questionnaire = {
   domains: AssessmentDomain[];
 };
 
-type Attempt = {
-  id: string;
-  status: string;
-  startedAt: string;
-  completedAt: string | null;
+type AssessmentStatus = {
+  status: "NOT_AVAILABLE" | "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
+  label: string;
+  completedSections: number;
+  totalSections: number;
+  completedQuestions: number;
+  totalQuestions: number;
+  progressPercent: number;
+  certificate?: {
+    available: boolean;
+    certificateId: string | null;
+    assessmentTitle: string | null;
+    completedAt: string | null;
+  };
+};
+
+type SavedResponse = {
+  questionId: string;
+  value: string;
 };
 
 type AnswerValue = string;
 
+const ratingScale = [
+  {
+    value: "1",
+    label: "Not yet",
+    description: "I do not feel confident doing this yet.",
+  },
+  {
+    value: "2",
+    label: "Starting",
+    description: "I can do this with support or guidance.",
+  },
+  {
+    value: "3",
+    label: "Developing",
+    description: "I can usually do this in familiar situations.",
+  },
+  {
+    value: "4",
+    label: "Confident",
+    description: "I can do this well in most situations.",
+  },
+  {
+    value: "5",
+    label: "Very confident",
+    description: "I can do this consistently and independently.",
+  },
+];
+
 export default function CarerAssessmentPage() {
   const [user, setUser] = useState<User | null>(null);
   const [questionnaire, setQuestionnaire] = useState<Questionnaire | null>(null);
-  const [attempt, setAttempt] = useState<Attempt | null>(null);
+  const [assessmentStatus, setAssessmentStatus] =
+    useState<AssessmentStatus | null>(null);
   const [activeDomainId, setActiveDomainId] = useState("");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [savedDomains, setSavedDomains] = useState<Record<string, boolean>>({});
@@ -59,67 +102,117 @@ export default function CarerAssessmentPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  async function loadAssessment() {
-    try {
-      const userResponse = await fetch("/api/auth/me", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
+  async function loadStatus() {
+    const statusResponse = await fetch("/api/carer/assessment/status", {
+      method: "GET",
+      cache: "no-store",
+      credentials: "include",
+    });
 
-      if (!userResponse.ok) {
-        window.location.href = "/login";
-        return;
-      }
-
-      const userData = await userResponse.json();
-      const currentUser: User | null = userData.user;
-
-      if (!currentUser) {
-        window.location.href = "/login";
-        return;
-      }
-
-      if (!currentUser.roles.includes("carer")) {
-        window.location.href = "/";
-        return;
-      }
-
-      setUser(currentUser);
-
-      const assessmentResponse = await fetch("/api/carer/assessment", {
-        method: "GET",
-        cache: "no-store",
-        credentials: "include",
-      });
-
-      const assessmentData = await assessmentResponse.json();
-
-      if (!assessmentResponse.ok) {
-        setError(assessmentData.message || "Could not load your assessment.");
-        return;
-      }
-
-      const activeQuestionnaire: Questionnaire = assessmentData.questionnaire;
-
-      setQuestionnaire(activeQuestionnaire);
-      setAttempt(assessmentData.attempt || null);
-      setAnswers(assessmentData.answers || {});
-      setSavedDomains(assessmentData.savedDomains || {});
-
-      if (activeQuestionnaire.domains.length > 0 && !activeDomainId) {
-        setActiveDomainId(activeQuestionnaire.domains[0].id);
-      }
-    } catch {
-      setError("Something went wrong loading your assessment.");
-    } finally {
-      setLoading(false);
+    if (statusResponse.ok) {
+      const statusData = await statusResponse.json();
+      setAssessmentStatus(statusData);
+      return statusData as AssessmentStatus;
     }
+
+    return null;
   }
 
   useEffect(() => {
+    async function loadAssessment() {
+      try {
+        const userResponse = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        if (!userResponse.ok) {
+          window.location.href = "/login";
+          return;
+        }
+
+        const userData = await userResponse.json();
+        const currentUser: User | null = userData.user;
+
+        if (!currentUser) {
+          window.location.href = "/login";
+          return;
+        }
+
+        if (!currentUser.roles.includes("carer")) {
+          window.location.href = "/";
+          return;
+        }
+
+        setUser(currentUser);
+
+        await loadStatus();
+
+        const assessmentResponse = await fetch("/api/carer/assessment", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        });
+
+        const assessmentData = await assessmentResponse.json();
+
+        if (!assessmentResponse.ok) {
+          setError(assessmentData.message || "Could not load your assessment.");
+          return;
+        }
+
+        const activeQuestionnaire: Questionnaire = assessmentData.questionnaire;
+
+        const questionnaireWithVisibleDomains = {
+          ...activeQuestionnaire,
+          domains: activeQuestionnaire.domains.filter(
+            (domain) => domain.questions.length > 0
+          ),
+        };
+
+        setQuestionnaire(questionnaireWithVisibleDomains);
+
+        if (questionnaireWithVisibleDomains.domains.length > 0) {
+          setActiveDomainId(questionnaireWithVisibleDomains.domains[0].id);
+        }
+
+        const responseMap: Record<string, AnswerValue> = {};
+        const domainSaveMap: Record<string, boolean> = {};
+
+        const savedResponses: SavedResponse[] = assessmentData.responses || [];
+
+        savedResponses.forEach((response) => {
+          responseMap[response.questionId] = response.value;
+        });
+
+        questionnaireWithVisibleDomains.domains.forEach((domain) => {
+          const requiredQuestions = domain.questions.filter(
+            (question) => question.isRequired
+          );
+
+          const isDomainSaved =
+            requiredQuestions.length > 0 &&
+            requiredQuestions.every((question) => responseMap[question.id]);
+
+          if (isDomainSaved) {
+            domainSaveMap[domain.id] = true;
+          }
+        });
+
+        setAnswers(responseMap);
+        setSavedDomains(domainSaveMap);
+      } catch {
+        setError("Something went wrong loading your assessment.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
     loadAssessment();
   }, []);
+
+  const isCompleted = assessmentStatus?.status === "COMPLETED";
 
   const activeDomain = useMemo(() => {
     if (!questionnaire) {
@@ -148,6 +241,10 @@ export default function CarerAssessmentPage() {
   }, [savedDomains]);
 
   function handleAnswerChange(questionId: string, value: string) {
+    if (isCompleted) {
+      return;
+    }
+
     setAnswers((currentAnswers) => ({
       ...currentAnswers,
       [questionId]: value,
@@ -183,7 +280,7 @@ export default function CarerAssessmentPage() {
   }
 
   async function handleSaveSection() {
-    if (!questionnaire || !activeDomain) {
+    if (!activeDomain || !questionnaire || isCompleted) {
       return;
     }
 
@@ -201,14 +298,6 @@ export default function CarerAssessmentPage() {
       return;
     }
 
-    const sectionResponses = activeDomain.questions
-      .filter((question) => answers[question.id])
-      .map((question) => ({
-        questionId: question.id,
-        domainId: activeDomain.id,
-        value: answers[question.id],
-      }));
-
     try {
       const response = await fetch("/api/carer/assessment/responses", {
         method: "POST",
@@ -219,7 +308,11 @@ export default function CarerAssessmentPage() {
         body: JSON.stringify({
           questionnaireId: questionnaire.id,
           domainId: activeDomain.id,
-          responses: sectionResponses,
+          responses: activeDomain.questions.map((question) => ({
+            questionId: question.id,
+            domainId: activeDomain.id,
+            value: answers[question.id] || "",
+          })),
         }),
       });
 
@@ -230,8 +323,13 @@ export default function CarerAssessmentPage() {
         return;
       }
 
+      setSavedDomains((currentSavedDomains) => ({
+        ...currentSavedDomains,
+        [activeDomain.id]: true,
+      }));
+
       setSuccess(data.message || "Section saved successfully.");
-      await loadAssessment();
+      await loadStatus();
     } catch {
       setError("Something went wrong saving this section.");
     } finally {
@@ -244,57 +342,85 @@ export default function CarerAssessmentPage() {
 
     if (question.type === "YES_NO") {
       return (
-        <div className="d-flex flex-wrap gap-2">
-          <button
-            type="button"
-            className={`btn ${
-              value === "yes" ? "btn-primary" : "btn-outline-primary"
-            }`}
-            onClick={() => handleAnswerChange(question.id, "yes")}
-          >
-            Yes
-          </button>
+        <div>
+          <div className="d-flex flex-wrap gap-2 mb-2">
+            <button
+              type="button"
+              className={`btn ${
+                value === "yes" ? "btn-primary" : "btn-outline-primary"
+              }`}
+              disabled={isCompleted}
+              onClick={() => handleAnswerChange(question.id, "yes")}
+            >
+              Yes
+            </button>
 
-          <button
-            type="button"
-            className={`btn ${
-              value === "no" ? "btn-primary" : "btn-outline-primary"
-            }`}
-            onClick={() => handleAnswerChange(question.id, "no")}
-          >
-            No
-          </button>
+            <button
+              type="button"
+              className={`btn ${
+                value === "no" ? "btn-primary" : "btn-outline-primary"
+              }`}
+              disabled={isCompleted}
+              onClick={() => handleAnswerChange(question.id, "no")}
+            >
+              No
+            </button>
+          </div>
+
+          <small className="text-muted">
+            Choose Yes if this statement reflects your caregiving experience, or
+            No if it does not apply yet.
+          </small>
         </div>
       );
     }
 
     if (question.type === "TEXT") {
       return (
-        <textarea
-          className="form-control"
-          rows={4}
-          value={value}
-          onChange={(event) =>
-            handleAnswerChange(question.id, event.target.value)
-          }
-          placeholder="Write your answer"
-        />
+        <div>
+          <textarea
+            className="form-control"
+            rows={4}
+            value={value}
+            disabled={isCompleted}
+            onChange={(event) =>
+              handleAnswerChange(question.id, event.target.value)
+            }
+            placeholder="Write your answer"
+          />
+
+          <small className="text-muted">
+            Use this space to briefly describe an example from your caregiving
+            experience.
+          </small>
+        </div>
       );
     }
 
     return (
-      <div className="d-flex flex-wrap gap-2">
-        {["1", "2", "3", "4", "5"].map((rating) => (
-          <button
-            key={rating}
-            type="button"
-            className={`btn ${
-              value === rating ? "btn-primary" : "btn-outline-primary"
-            }`}
-            onClick={() => handleAnswerChange(question.id, rating)}
-          >
-            {rating}
-          </button>
+      <div className="row g-2">
+        {ratingScale.map((rating) => (
+          <div key={rating.value} className="col-md">
+            <button
+              type="button"
+              className={`w-100 h-100 text-start border rounded-3 p-3 ${
+                value === rating.value
+                  ? "border-primary bg-primary bg-opacity-10"
+                  : "bg-light"
+              }`}
+              disabled={isCompleted}
+              onClick={() => handleAnswerChange(question.id, rating.value)}
+              style={{
+                minHeight: "96px",
+                cursor: isCompleted ? "not-allowed" : "pointer",
+              }}
+            >
+              <div className="fw-bold small mb-1">
+                {rating.value}. {rating.label}
+              </div>
+              <div className="text-muted small">{rating.description}</div>
+            </button>
+          </div>
         ))}
       </div>
     );
@@ -360,35 +486,27 @@ export default function CarerAssessmentPage() {
               <p className="text-muted mb-0">
                 Complete your assessment one section at a time.
               </p>
-
-              {questionnaire && questionnaire.domains.length > 0 && (
-                <div className="d-flex flex-wrap gap-2 mt-3">
-                  <span className="badge bg-primary rounded-pill px-3 py-2">
-                    {completedDomainCount} of {questionnaire.domains.length}{" "}
-                    sections saved
-                  </span>
-
-                  {attempt && (
-                    <span
-                      className={`badge rounded-pill px-3 py-2 ${
-                        attempt.status === "COMPLETED"
-                          ? "bg-success"
-                          : "bg-secondary"
-                      }`}
-                    >
-                      {attempt.status === "COMPLETED"
-                        ? "Completed"
-                        : "In Progress"}
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
             <Link href="/carer/dashboard" className="btn btn-outline-primary">
               Back to Dashboard
             </Link>
           </div>
+
+          {isCompleted && (
+            <div className="alert alert-success d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+              <div>
+                <strong>Assessment completed and locked.</strong>
+                <div>
+                  Your answers are saved. You can view your certificate now.
+                </div>
+              </div>
+
+              <Link href="/carer/certificate" className="btn btn-success">
+                View Certificate
+              </Link>
+            </div>
+          )}
 
           {error && <div className="alert alert-danger">{error}</div>}
           {success && <div className="alert alert-success">{success}</div>}
@@ -445,14 +563,21 @@ export default function CarerAssessmentPage() {
               {activeDomain && (
                 <div className="card border-0 shadow-sm">
                   <div className="card-body p-4 p-lg-5">
-                    <div className="mb-4">
-                      <h2 className="fw-bold text-primary mb-1">
-                        {activeDomain.title}
-                      </h2>
-                      <p className="text-muted mb-0">
-                        {activeDomain.description ||
-                          "Answer the questions in this section."}
-                      </p>
+                    <div className="d-flex flex-column flex-lg-row justify-content-between gap-3 mb-4">
+                      <div>
+                        <h2 className="fw-bold text-primary mb-1">
+                          {activeDomain.title}
+                        </h2>
+                        <p className="text-muted mb-0">
+                          {activeDomain.description ||
+                            "Answer the questions in this section."}
+                        </p>
+                      </div>
+
+                      <span className="badge bg-primary rounded-pill align-self-start px-3 py-2">
+                        {completedDomainCount} of{" "}
+                        {questionnaire.domains.length} sections saved
+                      </span>
                     </div>
 
                     <div className="d-grid gap-3">
@@ -498,14 +623,25 @@ export default function CarerAssessmentPage() {
                       </button>
 
                       <div className="d-flex gap-2">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          onClick={handleSaveSection}
-                          disabled={savingSection}
-                        >
-                          {savingSection ? "Saving..." : "Save Section"}
-                        </button>
+                        {!isCompleted && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={handleSaveSection}
+                            disabled={savingSection}
+                          >
+                            {savingSection ? "Saving..." : "Save Section"}
+                          </button>
+                        )}
+
+                        {isCompleted && (
+                          <Link
+                            href="/carer/certificate"
+                            className="btn btn-success"
+                          >
+                            View Certificate
+                          </Link>
+                        )}
 
                         <button
                           type="button"

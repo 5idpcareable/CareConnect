@@ -42,67 +42,48 @@ async function requireAdmin() {
   return session.user;
 }
 
-export async function POST(
-  request: Request,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET() {
   try {
     const admin = await requireAdmin();
 
     if (!admin) {
       return NextResponse.json(
-        { message: "Only admins can add domains." },
+        { message: "Only admins can view users." },
         { status: 403 }
       );
     }
 
-    const { id } = await context.params;
-    const body = await request.json();
-
-    const { title, description } = body;
-
-    if (!title) {
-      return NextResponse.json(
-        { message: "Domain title is required." },
-        { status: 400 }
-      );
-    }
-
-    const existingDomainCount = await prisma.assessmentDomain.count({
-      where: {
-        questionnaireId: id,
+    const users = await prisma.user.findMany({
+      orderBy: {
+        createdAt: "desc",
       },
-    });
-
-    const domain = await prisma.assessmentDomain.create({
-      data: {
-        questionnaireId: id,
-        title,
-        description,
-        order: existingDomainCount + 1,
-        createdById: admin.id,
-        updatedById: admin.id,
-      },
-    });
-
-    await prisma.questionnaire.update({
-      where: {
-        id,
-      },
-      data: {
-        updatedById: admin.id,
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
       },
     });
 
     return NextResponse.json({
-      message: "Domain added successfully.",
-      domain,
+      users: users.map((user) => ({
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        phone: user.phone,
+        postcode: user.postcode,
+        createdAt: user.createdAt,
+        roles: user.roles.map((userRole) => userRole.role.name),
+      })),
     });
   } catch (error) {
-    console.error("Domain create error:", error);
+    console.error("Admin users error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong adding domain." },
+      { message: "Something went wrong loading users." },
       { status: 500 }
     );
   }

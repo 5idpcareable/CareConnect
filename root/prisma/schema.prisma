@@ -123,13 +123,15 @@ model Questionnaire {
 }
 
 model AssessmentDomain {
-  id              String   @id @default(cuid())
+  id              String    @id @default(cuid())
   questionnaireId String
   title           String
   description     String?
-  order           Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  order           Int       @default(0)
+  isVisible       Boolean   @default(true)
+  deletedAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   createdById String?
   updatedById String?

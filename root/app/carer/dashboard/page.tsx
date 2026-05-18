@@ -14,6 +14,13 @@ type User = {
   roles: string[];
 };
 
+type CertificateInfo = {
+  available: boolean;
+  certificateId: string | null;
+  assessmentTitle: string | null;
+  completedAt: string | null;
+};
+
 type AssessmentStatus = {
   status: "NOT_AVAILABLE" | "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   label: string;
@@ -22,6 +29,14 @@ type AssessmentStatus = {
   completedQuestions: number;
   totalQuestions: number;
   progressPercent: number;
+  certificate?: CertificateInfo;
+};
+
+const emptyCertificate: CertificateInfo = {
+  available: false,
+  certificateId: null,
+  assessmentTitle: null,
+  completedAt: null,
 };
 
 export default function CarerDashboardPage() {
@@ -131,7 +146,11 @@ export default function CarerDashboardPage() {
       completedQuestions: 0,
       totalQuestions: 0,
       progressPercent: 0,
+      certificate: emptyCertificate,
     } as AssessmentStatus);
+
+  const certificateInfo = safeAssessmentStatus.certificate || emptyCertificate;
+  const hasCertificate = certificateInfo.available;
 
   return (
     <>
@@ -195,7 +214,7 @@ export default function CarerDashboardPage() {
                   </div>
 
                   <p className="text-muted mb-3">
-                    Complete your caregiving skill self-assessment.
+                    Complete your current caregiving skill self-assessment.
                   </p>
 
                   <div className="progress mb-2" style={{ height: "8px" }}>
@@ -237,27 +256,29 @@ export default function CarerDashboardPage() {
                   <h5 className="fw-bold">Certificate</h5>
 
                   <p className="text-muted">
-                    Your certificate will be available after assessment
-                    completion.
+                    Your completed assessment certificates remain available even
+                    when new assessments are published.
                   </p>
 
                   <span
                     className={`badge ${
-                      safeAssessmentStatus.status === "COMPLETED"
-                        ? "bg-success"
-                        : "bg-secondary"
+                      hasCertificate ? "bg-success" : "bg-secondary"
                     }`}
                   >
-                    {safeAssessmentStatus.status === "COMPLETED"
-                      ? "Available"
-                      : "Locked"}
+                    {hasCertificate ? "Available" : "Locked"}
                   </span>
+
+                  {hasCertificate && certificateInfo.assessmentTitle && (
+                    <small className="text-muted d-block mt-2">
+                      Latest: {certificateInfo.assessmentTitle}
+                    </small>
+                  )}
 
                   <div className="mt-3">
                     <Link
                       href="/carer/certificate"
                       className={`btn btn-sm ${
-                        safeAssessmentStatus.status === "COMPLETED"
+                        hasCertificate
                           ? "btn-primary"
                           : "btn-outline-secondary disabled"
                       }`}
@@ -275,8 +296,8 @@ export default function CarerDashboardPage() {
               <h4 className="fw-bold mb-3">Next Step</h4>
 
               <p className="text-muted">
-                Continue your assessment to recognise the skills you have built
-                through caregiving experience.
+                Continue your current assessment to recognise the skills you have
+                built through caregiving experience.
               </p>
 
               <Link

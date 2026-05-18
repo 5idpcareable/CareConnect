@@ -42,7 +42,7 @@ async function requireAdmin() {
   return session.user;
 }
 
-function canModifyQuestion(
+function canModifyDomain(
   admin: Awaited<ReturnType<typeof requireAdmin>>,
   createdById: string | null
 ) {
@@ -105,7 +105,6 @@ async function syncQuestionnaireActiveStatus(
           isActive: false,
         },
       }),
-
       prisma.questionnaire.update({
         where: {
           id: questionnaireId,
@@ -144,99 +143,82 @@ async function syncQuestionnaireActiveStatus(
 
 export async function PUT(
   request: Request,
-  context: { params: Promise<{ questionId: string }> }
+  context: { params: Promise<{ domainId: string }> }
 ) {
   try {
     const admin = await requireAdmin();
 
     if (!admin) {
       return NextResponse.json(
-        { message: "Only admins can update questions." },
+        { message: "Only admins can update domains." },
         { status: 403 }
       );
     }
 
-    const { questionId } = await context.params;
+    const { domainId } = await context.params;
     const body = await request.json();
 
-    const { prompt, helpText, type, isRequired } = body;
+    const { title, description } = body;
 
-    if (!prompt || String(prompt).trim().length === 0) {
+    if (!title || String(title).trim().length === 0) {
       return NextResponse.json(
-        { message: "Question prompt is required." },
+        { message: "Domain title is required." },
         { status: 400 }
       );
     }
 
-    const question = await prisma.assessmentQuestion.findUnique({
+    const domain = await prisma.assessmentDomain.findUnique({
       where: {
-        id: questionId,
-      },
-      include: {
-        domain: true,
+        id: domainId,
       },
     });
 
-    if (!question) {
+    if (!domain) {
       return NextResponse.json(
-        { message: "Question not found." },
+        { message: "Domain not found." },
         { status: 404 }
       );
     }
 
-    if (question.deletedAt) {
-      return NextResponse.json(
-        { message: "Deleted questions cannot be edited." },
-        { status: 400 }
-      );
-    }
-
-    if (!canModifyQuestion(admin, question.createdById)) {
+    if (!canModifyDomain(admin, domain.createdById)) {
       return NextResponse.json(
         {
           message:
-            "Only the question creator or super admin can edit this question.",
+            "Only the domain creator or super admin can update this domain.",
         },
         { status: 403 }
       );
     }
 
-    const updatedQuestion = await prisma.assessmentQuestion.update({
+    const updatedDomain = await prisma.assessmentDomain.update({
       where: {
-        id: questionId,
+        id: domainId,
       },
       data: {
-        prompt: String(prompt).trim(),
-        helpText: helpText ? String(helpText).trim() : null,
-        type: type || "LIKERT_1_5",
-        isRequired: Boolean(isRequired),
+        title: String(title).trim(),
+        description: description ? String(description).trim() : null,
         updatedById: admin.id,
       },
     });
 
-    await prisma.assessmentDomain.update({
+    await prisma.questionnaire.update({
       where: {
-        id: question.domainId,
+        id: domain.questionnaireId,
       },
       data: {
         updatedById: admin.id,
       },
     });
-
-    await syncQuestionnaireActiveStatus(
-      question.domain.questionnaireId,
-      admin.id
-    );
 
     return NextResponse.json({
-      message: "Question updated successfully.",
-      question: updatedQuestion,
+      message: "Domain updated successfully.",
+      domain: updatedDomain,
     });
   } catch (error) {
-    console.error("Question update error:", error);
+    console.error("Domain update error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong updating question." },
+      { message: "Something went wrong updating domain." },
       { status: 500 }
     );
   }
@@ -244,86 +226,83 @@ export async function PUT(
 
 export async function PATCH(
   request: Request,
-  context: { params: Promise<{ questionId: string }> }
+  context: { params: Promise<{ domainId: string }> }
 ) {
   try {
     const admin = await requireAdmin();
 
     if (!admin) {
       return NextResponse.json(
-        { message: "Only admins can manage questions." },
+        { message: "Only admins can manage domains." },
         { status: 403 }
       );
     }
 
-    const { questionId } = await context.params;
+    const { domainId } = await context.params;
     const body = await request.json();
 
     const { action } = body as {
       action?: "toggle-visibility" | "soft-delete";
     };
 
-    const question = await prisma.assessmentQuestion.findUnique({
+    const domain = await prisma.assessmentDomain.findUnique({
       where: {
-        id: questionId,
-      },
-      include: {
-        domain: true,
+        id: domainId,
       },
     });
 
-    if (!question) {
+    if (!domain) {
       return NextResponse.json(
-        { message: "Question not found." },
+        { message: "Domain not found." },
         { status: 404 }
       );
     }
 
-    if (!canModifyQuestion(admin, question.createdById)) {
+    if (!canModifyDomain(admin, domain.createdById)) {
       return NextResponse.json(
         {
           message:
-            "Only the question creator or super admin can manage this question.",
+            "Only the domain creator or super admin can manage this domain.",
         },
         { status: 403 }
       );
     }
 
     if (action === "toggle-visibility") {
-      if (question.deletedAt) {
+      if (domain.deletedAt) {
         return NextResponse.json(
-          { message: "Deleted questions cannot be made visible." },
+          { message: "Deleted domains cannot be made visible." },
           { status: 400 }
         );
       }
 
-      const updatedQuestion = await prisma.assessmentQuestion.update({
+      const updatedDomain = await prisma.assessmentDomain.update({
         where: {
-          id: questionId,
+          id: domainId,
         },
         data: {
-          isVisible: !question.isVisible,
+          isVisible: !domain.isVisible,
           updatedById: admin.id,
         },
       });
 
       const status = await syncQuestionnaireActiveStatus(
-        question.domain.questionnaireId,
+        domain.questionnaireId,
         admin.id
       );
 
       return NextResponse.json({
-        message: updatedQuestion.isVisible
-          ? `Question is now visible. ${status.reason}`
-          : `Question is now hidden. ${status.reason}`,
-        question: updatedQuestion,
+        message: updatedDomain.isVisible
+          ? `Domain is now visible. ${status.reason}`
+          : `Domain is now hidden. ${status.reason}`,
+        domain: updatedDomain,
       });
     }
 
     if (action === "soft-delete") {
-      const updatedQuestion = await prisma.assessmentQuestion.update({
+      const updatedDomain = await prisma.assessmentDomain.update({
         where: {
-          id: questionId,
+          id: domainId,
         },
         data: {
           isVisible: false,
@@ -333,25 +312,25 @@ export async function PATCH(
       });
 
       const status = await syncQuestionnaireActiveStatus(
-        question.domain.questionnaireId,
+        domain.questionnaireId,
         admin.id
       );
 
       return NextResponse.json({
-        message: `Question deleted from active view. ${status.reason}`,
-        question: updatedQuestion,
+        message: `Domain deleted from active view. ${status.reason}`,
+        domain: updatedDomain,
       });
     }
 
     return NextResponse.json(
-      { message: "Invalid question action." },
+      { message: "Invalid domain action." },
       { status: 400 }
     );
   } catch (error) {
-    console.error("Question action error:", error);
+    console.error("Domain action error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong managing question." },
+      { message: "Something went wrong managing domain." },
       { status: 500 }
     );
   }

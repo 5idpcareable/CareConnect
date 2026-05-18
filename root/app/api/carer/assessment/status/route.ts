@@ -53,12 +53,45 @@ export async function GET() {
       );
     }
 
+    const completedCertificateAttempt = await prisma.assessmentAttempt.findFirst(
+      {
+        where: {
+          userId: carer.id,
+          status: "COMPLETED",
+        },
+        orderBy: {
+          completedAt: "desc",
+        },
+        include: {
+          questionnaire: true,
+        },
+      }
+    );
+
+    const certificate = completedCertificateAttempt
+      ? {
+          available: true,
+          certificateId: completedCertificateAttempt.id,
+          assessmentTitle: completedCertificateAttempt.questionnaire.title,
+          completedAt: completedCertificateAttempt.completedAt,
+        }
+      : {
+          available: false,
+          certificateId: null,
+          assessmentTitle: null,
+          completedAt: null,
+        };
+
     const questionnaire = await prisma.questionnaire.findFirst({
       where: {
         isActive: true,
       },
       include: {
         domains: {
+          where: {
+            isVisible: true,
+            deletedAt: null,
+          },
           include: {
             questions: {
               where: {
@@ -80,6 +113,7 @@ export async function GET() {
         completedQuestions: 0,
         totalQuestions: 0,
         progressPercent: 0,
+        certificate,
       });
     }
 
@@ -114,6 +148,7 @@ export async function GET() {
         completedQuestions: 0,
         totalQuestions,
         progressPercent: 0,
+        certificate,
       });
     }
 
@@ -128,8 +163,9 @@ export async function GET() {
     const completedQuestions = visibleDomains.reduce(
       (total, domain) =>
         total +
-        domain.questions.filter((question) => answeredQuestionIds.has(question.id))
-          .length,
+        domain.questions.filter((question) =>
+          answeredQuestionIds.has(question.id)
+        ).length,
       0
     );
 
@@ -151,6 +187,7 @@ export async function GET() {
       completedQuestions,
       totalQuestions,
       progressPercent,
+      certificate,
     });
   } catch (error) {
     console.error("Assessment status error:", error);

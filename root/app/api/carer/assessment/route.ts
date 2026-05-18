@@ -59,6 +59,10 @@ export async function GET() {
       },
       include: {
         domains: {
+          where: {
+            isVisible: true,
+            deletedAt: null,
+          },
           orderBy: {
             order: "asc",
           },

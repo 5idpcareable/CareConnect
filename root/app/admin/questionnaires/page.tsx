@@ -52,6 +52,8 @@ type AssessmentDomain = {
   title: string;
   description: string | null;
   order: number;
+  isVisible: boolean;
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
   createdBy?: UserSummary | null;
@@ -73,6 +75,7 @@ type QuestionnaireDetail = {
 
 type ActivePanel = "domain" | "question" | "existing";
 type QuestionFilter = "active" | "all";
+type PageSize = "5" | "10" | "15" | "all";
 
 function fullName(user?: UserSummary | null) {
   if (!user) {
@@ -97,11 +100,27 @@ export default function AdminQuestionnairesPage() {
   const [questionFilter, setQuestionFilter] =
     useState<QuestionFilter>("active");
 
+  const [domainPageSize, setDomainPageSize] = useState<PageSize>("5");
+  const [domainPage, setDomainPage] = useState(1);
+  const [questionPageSize, setQuestionPageSize] = useState<PageSize>("5");
+  const [questionPage, setQuestionPage] = useState(1);
+
+  const [editingDomainId, setEditingDomainId] = useState("");
+  const [editingDomainTitle, setEditingDomainTitle] = useState("");
+  const [editingDomainDescription, setEditingDomainDescription] = useState("");
+
+  const [editingQuestionId, setEditingQuestionId] = useState("");
+  const [editingQuestionPrompt, setEditingQuestionPrompt] = useState("");
+  const [editingQuestionHelpText, setEditingQuestionHelpText] = useState("");
+  const [editingQuestionType, setEditingQuestionType] = useState("LIKERT_1_5");
+  const [editingQuestionRequired, setEditingQuestionRequired] = useState(true);
+
   const [loading, setLoading] = useState(true);
   const [savingQuestionnaire, setSavingQuestionnaire] = useState(false);
   const [savingDomain, setSavingDomain] = useState(false);
   const [savingQuestion, setSavingQuestion] = useState(false);
   const [updatingQuestionId, setUpdatingQuestionId] = useState("");
+  const [updatingDomainId, setUpdatingDomainId] = useState("");
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -151,13 +170,15 @@ export default function AdminQuestionnairesPage() {
     const detail: QuestionnaireDetail = data.questionnaire;
     setQuestionnaire(detail);
 
-    if (detail.domains.length > 0) {
+    const usableDomains = detail.domains.filter((domain) => !domain.deletedAt);
+
+    if (usableDomains.length > 0) {
       setSelectedDomainId((currentDomainId) => {
-        const stillExists = detail.domains.some(
+        const stillExists = usableDomains.some(
           (domain) => domain.id === currentDomainId
         );
 
-        return stillExists ? currentDomainId : detail.domains[0].id;
+        return stillExists ? currentDomainId : usableDomains[0].id;
       });
     } else {
       setSelectedDomainId("");
@@ -238,6 +259,52 @@ export default function AdminQuestionnairesPage() {
 
     return questions;
   }, [questionsWithDomain, domainFilter, questionFilter]);
+
+  const domainCount = questionnaire?.domains.length || 0;
+  const domainPageSizeNumber =
+    domainPageSize === "all" ? Math.max(domainCount, 1) : Number(domainPageSize);
+  const totalDomainPages =
+    domainPageSize === "all"
+      ? 1
+      : Math.max(1, Math.ceil(domainCount / domainPageSizeNumber));
+
+  const paginatedDomains =
+    !questionnaire || domainPageSize === "all"
+      ? questionnaire?.domains || []
+      : questionnaire.domains.slice(
+          (domainPage - 1) * domainPageSizeNumber,
+          domainPage * domainPageSizeNumber
+        );
+
+  const questionCount = filteredQuestions.length;
+  const questionPageSizeNumber =
+    questionPageSize === "all"
+      ? Math.max(questionCount, 1)
+      : Number(questionPageSize);
+  const totalQuestionPages =
+    questionPageSize === "all"
+      ? 1
+      : Math.max(1, Math.ceil(questionCount / questionPageSizeNumber));
+
+  const paginatedQuestions =
+    questionPageSize === "all"
+      ? filteredQuestions
+      : filteredQuestions.slice(
+          (questionPage - 1) * questionPageSizeNumber,
+          questionPage * questionPageSizeNumber
+        );
+
+  useEffect(() => {
+    if (domainPage > totalDomainPages) {
+      setDomainPage(totalDomainPages);
+    }
+  }, [domainPage, totalDomainPages]);
+
+  useEffect(() => {
+    if (questionPage > totalQuestionPages) {
+      setQuestionPage(totalQuestionPages);
+    }
+  }, [questionPage, totalQuestionPages]);
 
   async function handleCreateQuestionnaire(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -326,6 +393,7 @@ export default function AdminQuestionnairesPage() {
 
       await loadQuestionnaireDetail(questionnaire.id);
       setSelectedDomainId(data.domain.id);
+      setDomainPage(1);
       setActivePanel("question");
     } catch {
       setError("Something went wrong creating the domain.");
@@ -385,6 +453,7 @@ export default function AdminQuestionnairesPage() {
 
       await loadQuestionnaireDetail(questionnaire.id);
       setQuestionFilter("all");
+      setQuestionPage(1);
       setActivePanel("existing");
     } catch {
       setError("Something went wrong creating the question.");
@@ -432,6 +501,168 @@ export default function AdminQuestionnairesPage() {
     } finally {
       setUpdatingQuestionId("");
     }
+  }
+
+  async function handleDomainAction(
+    domainId: string,
+    action: "toggle-visibility" | "soft-delete"
+  ) {
+    if (!questionnaire) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setUpdatingDomainId(domainId);
+
+    try {
+      const response = await fetch(`/api/admin/domains/${domainId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          action,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Could not manage domain.");
+        return;
+      }
+
+      setSuccess(data.message || "Domain updated successfully.");
+      await loadQuestionnaireDetail(questionnaire.id);
+      await loadQuestionnaires(questionnaire.id);
+    } catch {
+      setError("Something went wrong managing the domain.");
+    } finally {
+      setUpdatingDomainId("");
+    }
+  }
+
+  async function handleEditDomain(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!questionnaire || !editingDomainId) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setUpdatingDomainId(editingDomainId);
+
+    try {
+      const response = await fetch(`/api/admin/domains/${editingDomainId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          title: editingDomainTitle,
+          description: editingDomainDescription,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Could not update domain.");
+        return;
+      }
+
+      setSuccess("Domain updated successfully.");
+      setEditingDomainId("");
+      setEditingDomainTitle("");
+      setEditingDomainDescription("");
+
+      await loadQuestionnaireDetail(questionnaire.id);
+      await loadQuestionnaires(questionnaire.id);
+    } catch {
+      setError("Something went wrong updating the domain.");
+    } finally {
+      setUpdatingDomainId("");
+    }
+  }
+
+  function startEditingDomain(domain: AssessmentDomain) {
+    setEditingDomainId(domain.id);
+    setEditingDomainTitle(domain.title);
+    setEditingDomainDescription(domain.description || "");
+  }
+
+  function startEditingQuestion(question: AssessmentQuestion) {
+    setEditingQuestionId(question.id);
+    setEditingQuestionPrompt(question.prompt);
+    setEditingQuestionHelpText(question.helpText || "");
+    setEditingQuestionType(question.type);
+    setEditingQuestionRequired(question.isRequired);
+  }
+
+  async function handleEditQuestion(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!questionnaire || !editingQuestionId) {
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    setUpdatingQuestionId(editingQuestionId);
+
+    try {
+      const response = await fetch(`/api/admin/questions/${editingQuestionId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          prompt: editingQuestionPrompt,
+          helpText: editingQuestionHelpText,
+          type: editingQuestionType,
+          isRequired: editingQuestionRequired,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data.message || "Could not update question.");
+        return;
+      }
+
+      setSuccess("Question updated successfully.");
+
+      setEditingQuestionId("");
+      setEditingQuestionPrompt("");
+      setEditingQuestionHelpText("");
+      setEditingQuestionType("LIKERT_1_5");
+      setEditingQuestionRequired(true);
+
+      await loadQuestionnaireDetail(questionnaire.id);
+      await loadQuestionnaires(questionnaire.id);
+    } catch {
+      setError("Something went wrong updating the question.");
+    } finally {
+      setUpdatingQuestionId("");
+    }
+  }
+
+  function domainStatus(domain: AssessmentDomain) {
+    if (domain.deletedAt) {
+      return <span className="badge bg-danger">Deleted</span>;
+    }
+
+    if (domain.isVisible) {
+      return <span className="badge bg-success">Visible</span>;
+    }
+
+    return <span className="badge bg-secondary">Hidden</span>;
   }
 
   function questionStatus(question: AssessmentQuestion) {
@@ -520,18 +751,11 @@ export default function AdminQuestionnairesPage() {
                 onClick={() => setActivePanel("domain")}
               >
                 <div className="card-body p-4">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h4 className="fw-bold mb-2">Create Domain</h4>
-                      <p className="text-muted mb-0">
-                        Add skill areas such as communication, planning, or care
-                        coordination.
-                      </p>
-                    </div>
-                    <span className="badge bg-primary rounded-pill">
-                      Step 1
-                    </span>
-                  </div>
+                  <h4 className="fw-bold mb-2">Create Domain</h4>
+                  <p className="text-muted mb-0">
+                    Add skill areas such as communication, planning, or care
+                    coordination.
+                  </p>
                 </div>
               </button>
             </div>
@@ -545,17 +769,10 @@ export default function AdminQuestionnairesPage() {
                 onClick={() => setActivePanel("question")}
               >
                 <div className="card-body p-4">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h4 className="fw-bold mb-2">Create Question</h4>
-                      <p className="text-muted mb-0">
-                        Select a domain and add the question carers will answer.
-                      </p>
-                    </div>
-                    <span className="badge bg-primary rounded-pill">
-                      Step 2
-                    </span>
-                  </div>
+                  <h4 className="fw-bold mb-2">Create Question</h4>
+                  <p className="text-muted mb-0">
+                    Select a domain and add the question carers will answer.
+                  </p>
                 </div>
               </button>
             </div>
@@ -569,17 +786,10 @@ export default function AdminQuestionnairesPage() {
                 onClick={() => setActivePanel("existing")}
               >
                 <div className="card-body p-4">
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div>
-                      <h4 className="fw-bold mb-2">Existing Questions</h4>
-                      <p className="text-muted mb-0">
-                        Review questions, domains, and admin audit details.
-                      </p>
-                    </div>
-                    <span className="badge bg-primary rounded-pill">
-                      Report
-                    </span>
-                  </div>
+                  <h4 className="fw-bold mb-2">Existing Questions</h4>
+                  <p className="text-muted mb-0">
+                    Review questions, domains, and admin audit details.
+                  </p>
                 </div>
               </button>
             </div>
@@ -686,22 +896,220 @@ export default function AdminQuestionnairesPage() {
 
                 <hr className="my-4" />
 
-                <h5 className="fw-bold mb-3">Created Domains</h5>
+                <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                  <h5 className="fw-bold mb-0">Created Domains</h5>
 
-                <div className="d-flex flex-wrap gap-2">
-                  {questionnaire.domains.map((domain) => (
-                    <span
-                      key={domain.id}
-                      className="badge rounded-pill bg-light text-dark border px-3 py-2"
+                  <div className="d-flex align-items-center gap-2">
+                    <label className="form-label mb-0 small text-muted">
+                      Show
+                    </label>
+                    <select
+                      className="form-select form-select-sm"
+                      style={{ width: "90px" }}
+                      value={domainPageSize}
+                      onChange={(event) => {
+                        setDomainPageSize(event.target.value as PageSize);
+                        setDomainPage(1);
+                      }}
                     >
-                      {domain.title}
-                    </span>
-                  ))}
-
-                  {questionnaire.domains.length === 0 && (
-                    <span className="text-muted">No domains created yet.</span>
-                  )}
+                      <option value="5">5</option>
+                      <option value="10">10</option>
+                      <option value="15">15</option>
+                      <option value="all">All</option>
+                    </select>
+                  </div>
                 </div>
+
+                <div className="table-responsive">
+                  <table className="table align-middle">
+                    <thead>
+                      <tr>
+                        <th>Domain</th>
+                        <th>Status</th>
+                        <th>Questions</th>
+                        <th>Created By</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {paginatedDomains.map((domain) => (
+                        <tr key={domain.id}>
+                          <td style={{ minWidth: "260px" }}>
+                            {editingDomainId === domain.id ? (
+                              <form
+                                className="d-grid gap-2"
+                                onSubmit={handleEditDomain}
+                              >
+                                <input
+                                  className="form-control"
+                                  value={editingDomainTitle}
+                                  onChange={(event) =>
+                                    setEditingDomainTitle(event.target.value)
+                                  }
+                                  required
+                                />
+
+                                <input
+                                  className="form-control"
+                                  value={editingDomainDescription}
+                                  onChange={(event) =>
+                                    setEditingDomainDescription(
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Description"
+                                />
+
+                                <div className="d-flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="btn btn-sm btn-primary"
+                                    disabled={updatingDomainId === domain.id}
+                                  >
+                                    Save
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => {
+                                      setEditingDomainId("");
+                                      setEditingDomainTitle("");
+                                      setEditingDomainDescription("");
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div className="fw-semibold">
+                                  {domain.title}
+                                </div>
+                                <small className="text-muted">
+                                  {domain.description || "No description"}
+                                </small>
+                              </>
+                            )}
+                          </td>
+
+                          <td>{domainStatus(domain)}</td>
+                          <td>{domain.questions.length}</td>
+                          <td>{fullName(domain.createdBy)}</td>
+
+                          <td>
+                            <div className="d-flex flex-wrap gap-2">
+                              {!domain.deletedAt && (
+                                <>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-primary"
+                                    disabled={
+                                      updatingDomainId === domain.id ||
+                                      editingDomainId === domain.id
+                                    }
+                                    onClick={() => startEditingDomain(domain)}
+                                  >
+                                    Edit
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className={`btn btn-sm ${
+                                      domain.isVisible
+                                        ? "btn-outline-warning"
+                                        : "btn-outline-success"
+                                    }`}
+                                    disabled={updatingDomainId === domain.id}
+                                    onClick={() =>
+                                      handleDomainAction(
+                                        domain.id,
+                                        "toggle-visibility"
+                                      )
+                                    }
+                                  >
+                                    {domain.isVisible ? "Hide" : "Show"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-danger"
+                                    disabled={updatingDomainId === domain.id}
+                                    onClick={() => {
+                                      const confirmed = window.confirm(
+                                        "Are you sure you want to delete this domain? It will be hidden from carers but kept in database history."
+                                      );
+
+                                      if (!confirmed) {
+                                        return;
+                                      }
+
+                                      handleDomainAction(
+                                        domain.id,
+                                        "soft-delete"
+                                      );
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </>
+                              )}
+
+                              {domain.deletedAt && (
+                                <span className="text-muted small">
+                                  No actions
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {paginatedDomains.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="text-muted">
+                            No domains created yet.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {questionnaire.domains.length > 0 &&
+                  domainPageSize !== "all" && (
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <small className="text-muted">
+                        Page {domainPage} of {totalDomainPages}
+                      </small>
+
+                      <div className="d-flex gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={domainPage <= 1}
+                          onClick={() =>
+                            setDomainPage((currentPage) => currentPage - 1)
+                          }
+                        >
+                          Previous
+                        </button>
+
+                        <button
+                          type="button"
+                          className="btn btn-sm btn-outline-primary"
+                          disabled={domainPage >= totalDomainPages}
+                          onClick={() =>
+                            setDomainPage((currentPage) => currentPage + 1)
+                          }
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
           )}
@@ -719,7 +1127,8 @@ export default function AdminQuestionnairesPage() {
                   </p>
                 </div>
 
-                {questionnaire.domains.length === 0 ? (
+                {questionnaire.domains.filter((domain) => !domain.deletedAt)
+                  .length === 0 ? (
                   <div className="alert alert-warning mb-0">
                     Please create at least one domain before adding questions.
                   </div>
@@ -738,11 +1147,13 @@ export default function AdminQuestionnairesPage() {
                           }
                           required
                         >
-                          {questionnaire.domains.map((domain) => (
-                            <option key={domain.id} value={domain.id}>
-                              {domain.title}
-                            </option>
-                          ))}
+                          {questionnaire.domains
+                            .filter((domain) => !domain.deletedAt)
+                            .map((domain) => (
+                              <option key={domain.id} value={domain.id}>
+                                {domain.title}
+                              </option>
+                            ))}
                         </select>
                       </div>
 
@@ -827,8 +1238,8 @@ export default function AdminQuestionnairesPage() {
                       Existing Questions
                     </h3>
                     <p className="text-muted mb-0">
-                      Show, hide, or delete questions without removing database
-                      history.
+                      Show, hide, edit, or delete questions without removing
+                      database history.
                     </p>
                   </div>
 
@@ -840,9 +1251,10 @@ export default function AdminQuestionnairesPage() {
                       <select
                         className="form-select"
                         value={domainFilter}
-                        onChange={(event) =>
-                          setDomainFilter(event.target.value)
-                        }
+                        onChange={(event) => {
+                          setDomainFilter(event.target.value);
+                          setQuestionPage(1);
+                        }}
                       >
                         <option value="all">All domains</option>
                         {questionnaire.domains.map((domain) => (
@@ -858,14 +1270,32 @@ export default function AdminQuestionnairesPage() {
                       <select
                         className="form-select"
                         value={questionFilter}
-                        onChange={(event) =>
+                        onChange={(event) => {
                           setQuestionFilter(
                             event.target.value as QuestionFilter
-                          )
-                        }
+                          );
+                          setQuestionPage(1);
+                        }}
                       >
                         <option value="active">Visible only</option>
                         <option value="all">Show all</option>
+                      </select>
+                    </div>
+
+                    <div style={{ minWidth: "120px" }}>
+                      <label className="form-label fw-semibold">Show</label>
+                      <select
+                        className="form-select"
+                        value={questionPageSize}
+                        onChange={(event) => {
+                          setQuestionPageSize(event.target.value as PageSize);
+                          setQuestionPage(1);
+                        }}
+                      >
+                        <option value="5">5</option>
+                        <option value="10">10</option>
+                        <option value="15">15</option>
+                        <option value="all">All</option>
                       </select>
                     </div>
                   </div>
@@ -886,16 +1316,120 @@ export default function AdminQuestionnairesPage() {
                     </thead>
 
                     <tbody>
-                      {filteredQuestions.map((question) => (
+                      {paginatedQuestions.map((question) => (
                         <tr key={question.id}>
-                          <td style={{ minWidth: "320px" }}>
-                            <div className="fw-semibold">
-                              {question.prompt}
-                            </div>
-                            {question.helpText && (
-                              <small className="text-muted">
-                                {question.helpText}
-                              </small>
+                          <td style={{ minWidth: "360px" }}>
+                            {editingQuestionId === question.id ? (
+                              <form
+                                className="d-grid gap-2"
+                                onSubmit={handleEditQuestion}
+                              >
+                                <textarea
+                                  className="form-control"
+                                  rows={3}
+                                  value={editingQuestionPrompt}
+                                  onChange={(event) =>
+                                    setEditingQuestionPrompt(
+                                      event.target.value
+                                    )
+                                  }
+                                  required
+                                />
+
+                                <textarea
+                                  className="form-control"
+                                  rows={2}
+                                  value={editingQuestionHelpText}
+                                  onChange={(event) =>
+                                    setEditingQuestionHelpText(
+                                      event.target.value
+                                    )
+                                  }
+                                  placeholder="Help text"
+                                />
+
+                                <div className="row g-2">
+                                  <div className="col-md-6">
+                                    <select
+                                      className="form-select"
+                                      value={editingQuestionType}
+                                      onChange={(event) =>
+                                        setEditingQuestionType(
+                                          event.target.value
+                                        )
+                                      }
+                                    >
+                                      <option value="LIKERT_1_5">
+                                        Rating 1 to 5
+                                      </option>
+                                      <option value="YES_NO">Yes / No</option>
+                                      <option value="TEXT">
+                                        Written Answer
+                                      </option>
+                                    </select>
+                                  </div>
+
+                                  <div className="col-md-6 d-flex align-items-center">
+                                    <div className="form-check">
+                                      <input
+                                        id={`edit-required-${question.id}`}
+                                        className="form-check-input"
+                                        type="checkbox"
+                                        checked={editingQuestionRequired}
+                                        onChange={(event) =>
+                                          setEditingQuestionRequired(
+                                            event.target.checked
+                                          )
+                                        }
+                                      />
+                                      <label
+                                        className="form-check-label"
+                                        htmlFor={`edit-required-${question.id}`}
+                                      >
+                                        Required question
+                                      </label>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="d-flex gap-2">
+                                  <button
+                                    type="submit"
+                                    className="btn btn-sm btn-primary"
+                                    disabled={
+                                      updatingQuestionId === question.id
+                                    }
+                                  >
+                                    Save
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm btn-outline-secondary"
+                                    onClick={() => {
+                                      setEditingQuestionId("");
+                                      setEditingQuestionPrompt("");
+                                      setEditingQuestionHelpText("");
+                                      setEditingQuestionType("LIKERT_1_5");
+                                      setEditingQuestionRequired(true);
+                                    }}
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div className="fw-semibold">
+                                  {question.prompt}
+                                </div>
+
+                                {question.helpText && (
+                                  <small className="text-muted">
+                                    {question.helpText}
+                                  </small>
+                                )}
+                              </>
                             )}
                           </td>
 
@@ -906,7 +1440,6 @@ export default function AdminQuestionnairesPage() {
                           </td>
 
                           <td>{questionStatus(question)}</td>
-
                           <td>{question.type}</td>
 
                           <td>
@@ -924,12 +1457,29 @@ export default function AdminQuestionnairesPage() {
                               {!question.deletedAt && (
                                 <button
                                   type="button"
+                                  className="btn btn-sm btn-outline-primary"
+                                  disabled={
+                                    updatingQuestionId === question.id ||
+                                    editingQuestionId === question.id
+                                  }
+                                  onClick={() => startEditingQuestion(question)}
+                                >
+                                  Edit
+                                </button>
+                              )}
+
+                              {!question.deletedAt && (
+                                <button
+                                  type="button"
                                   className={`btn btn-sm ${
                                     question.isVisible
                                       ? "btn-outline-warning"
                                       : "btn-outline-success"
                                   }`}
-                                  disabled={updatingQuestionId === question.id}
+                                  disabled={
+                                    updatingQuestionId === question.id ||
+                                    editingQuestionId === question.id
+                                  }
                                   onClick={() =>
                                     handleQuestionAction(
                                       question.id,
@@ -945,7 +1495,10 @@ export default function AdminQuestionnairesPage() {
                                 <button
                                   type="button"
                                   className="btn btn-sm btn-outline-danger"
-                                  disabled={updatingQuestionId === question.id}
+                                  disabled={
+                                    updatingQuestionId === question.id ||
+                                    editingQuestionId === question.id
+                                  }
                                   onClick={() => {
                                     const confirmed = window.confirm(
                                       "Are you sure you want to delete this question? It will be hidden from carers but kept in the database history."
@@ -975,7 +1528,7 @@ export default function AdminQuestionnairesPage() {
                         </tr>
                       ))}
 
-                      {filteredQuestions.length === 0 && (
+                      {paginatedQuestions.length === 0 && (
                         <tr>
                           <td colSpan={7} className="text-muted">
                             No questions found for this selection.
@@ -985,6 +1538,38 @@ export default function AdminQuestionnairesPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {filteredQuestions.length > 0 && questionPageSize !== "all" && (
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <small className="text-muted">
+                      Page {questionPage} of {totalQuestionPages}
+                    </small>
+
+                    <div className="d-flex gap-2">
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        disabled={questionPage <= 1}
+                        onClick={() =>
+                          setQuestionPage((currentPage) => currentPage - 1)
+                        }
+                      >
+                        Previous
+                      </button>
+
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-outline-primary"
+                        disabled={questionPage >= totalQuestionPages}
+                        onClick={() =>
+                          setQuestionPage((currentPage) => currentPage + 1)
+                        }
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

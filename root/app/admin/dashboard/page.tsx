@@ -95,7 +95,7 @@ export default function AdminDashboardPage() {
               <h1 className="fw-bold text-primary mb-1">Admin Dashboard</h1>
               <p className="text-muted mb-0">
                 Welcome back, {user.firstName}. Manage questionnaires, users,
-                assessments, and certificates.
+                assessments, certificates, and reporting.
               </p>
             </div>
 
@@ -164,7 +164,7 @@ export default function AdminDashboardPage() {
                     Validate generated certificate IDs.
                   </p>
                   <Link
-                    href="/admin/certificates"
+                    href="/admin/validate"
                     className="btn btn-outline-primary btn-sm"
                   >
                     Validate Certificates
@@ -174,21 +174,57 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          {isSuperAdmin && (
-            <div className="card border-0 shadow-sm">
-              <div className="card-body p-4">
-                <h4 className="fw-bold mb-3">Super Admin Tools</h4>
-                <p className="text-muted">
-                  Review admin access requests and approve or reject new admin
-                  accounts.
-                </p>
+          <div className="row g-4">
+            <div className={isSuperAdmin ? "col-lg-6" : "col-lg-12"}>
+              <div className="card border-0 shadow-sm h-100">
+                <div className="card-body p-4">
+                  <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
+                    <div>
+                      <h4 className="fw-bold mb-2">Analytics & Reporting</h4>
+                      <p className="text-muted mb-0">
+                        View capability trends, domain score averages, strength
+                        areas, and support needs across completed carer
+                        assessments.
+                      </p>
+                    </div>
 
-                <Link href="/admin/access-requests" className="btn btn-primary">
-                  Manage Admin Requests
-                </Link>
+                    <div className="d-flex align-items-start">
+                      <Link href="/admin/analytics" className="btn btn-primary">
+                        View Analytics
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-          )}
+
+            {isSuperAdmin && (
+              <div className="col-lg-6">
+                <div className="card border-0 shadow-sm h-100">
+                  <div className="card-body p-4">
+                    <div className="d-flex flex-column flex-md-row justify-content-between gap-3">
+                      <div>
+                        <h4 className="fw-bold mb-2">Super Admin Tools</h4>
+                        <p className="text-muted mb-0">
+                          Review admin access requests and approve or reject new
+                          admin accounts.
+                        </p>
+                      </div>
+
+                      <div className="d-flex align-items-start">
+                        <Link
+                          href="/admin/access-requests"
+                          className="btn btn-primary"
+                        >
+                          Manage Admin Requests
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 
@@ -9,46 +8,6 @@ type DomainScore = {
   capabilityLevel: string;
   capabilityDescription: string;
 };
-
-async function requireCarer() {
-  const cookieStore = await cookies();
-  const sessionId = cookieStore.get("careable_session")?.value;
-
-  if (!sessionId) {
-    return null;
-  }
-
-  const session = await prisma.session.findUnique({
-    where: {
-      id: sessionId,
-    },
-    include: {
-      user: {
-        include: {
-          roles: {
-            include: {
-              role: true,
-            },
-          },
-        },
-      },
-    },
-  });
-
-  if (!session?.user) {
-    return null;
-  }
-
-  const isCarer = session.user.roles.some(
-    (userRole) => userRole.role.name === "carer"
-  );
-
-  if (!isCarer) {
-    return null;
-  }
-
-  return session.user;
-}
 
 function getCapability(score: number) {
   if (score >= 4) {
@@ -71,26 +30,26 @@ function getCapability(score: number) {
   };
 }
 
-export async function GET() {
+export async function POST(request: Request) {
   try {
-    const carer = await requireCarer();
+    const body = await request.json();
+    const { certificateId } = body as {
+      certificateId?: string;
+    };
 
-    if (!carer) {
+    if (!certificateId || certificateId.trim().length === 0) {
       return NextResponse.json(
-        { message: "Only carers can view certificates." },
-        { status: 403 }
+        { message: "Certificate ID is required." },
+        { status: 400 }
       );
     }
 
-    const completedAttempt = await prisma.assessmentAttempt.findFirst({
+    const completedAttempt = await prisma.assessmentAttempt.findUnique({
       where: {
-        userId: carer.id,
-        status: "COMPLETED",
-      },
-      orderBy: {
-        completedAt: "desc",
+        id: certificateId.trim(),
       },
       include: {
+        user: true,
         questionnaire: {
           include: {
             domains: {
@@ -120,9 +79,12 @@ export async function GET() {
       },
     });
 
-    if (!completedAttempt) {
+    if (!completedAttempt || completedAttempt.status !== "COMPLETED") {
       return NextResponse.json(
-        { message: "No completed assessment found for certificate." },
+        {
+          valid: false,
+          message: "Certificate ID was not found or is not completed.",
+        },
         { status: 404 }
       );
     }
@@ -166,23 +128,22 @@ export async function GET() {
     );
 
     return NextResponse.json({
+      valid: true,
       certificate: {
         id: completedAttempt.id,
-        carerName: `${carer.firstName} ${carer.lastName}`,
-        carerEmail: carer.email,
+        carerName: `${completedAttempt.user.firstName} ${completedAttempt.user.lastName}`,
         assessmentTitle: completedAttempt.questionnaire.title,
         completionDate: completedAttempt.completedAt,
         domainsCompleted: domainScores.length,
-        domainScores,
         topCapabilityAreas,
         status: "Verified",
       },
     });
   } catch (error) {
-    console.error("Certificate load error:", error);
+    console.error("Certificate validation error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong loading certificate." },
+      { message: "Something went wrong validating certificate." },
       { status: 500 }
     );
   }

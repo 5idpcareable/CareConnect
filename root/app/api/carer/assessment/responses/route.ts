@@ -67,29 +67,22 @@ export async function POST(request: Request) {
       responses?: ResponseInput[];
     };
 
-    if (!questionnaireId || !domainId) {
+    if (!questionnaireId || !domainId || !Array.isArray(responses)) {
       return NextResponse.json(
-        { message: "Questionnaire and domain are required." },
+        { message: "Questionnaire, domain, and responses are required." },
         { status: 400 }
       );
     }
 
-    if (!responses || responses.length === 0) {
-      return NextResponse.json(
-        { message: "At least one response is required." },
-        { status: 400 }
-      );
-    }
-
-    const questionnaire = await prisma.questionnaire.findFirst({
+    const questionnaire = await prisma.questionnaire.findUnique({
       where: {
         id: questionnaireId,
-        isActive: true,
       },
       include: {
         domains: {
           where: {
-            id: domainId,
+            isVisible: true,
+            deletedAt: null,
           },
           include: {
             questions: {
@@ -103,51 +96,86 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!questionnaire || questionnaire.domains.length === 0) {
+    if (!questionnaire || !questionnaire.isActive) {
       return NextResponse.json(
-        { message: "Active assessment section was not found." },
-        { status: 404 }
+        { message: "This assessment is not currently active." },
+        { status: 400 }
       );
     }
 
-    const domain = questionnaire.domains[0];
+    const domain = questionnaire.domains.find(
+      (currentDomain) => currentDomain.id === domainId
+    );
+
+    if (!domain) {
+      return NextResponse.json(
+        { message: "This assessment section is not available." },
+        { status: 400 }
+      );
+    }
+
     const allowedQuestionIds = new Set(
       domain.questions.map((question) => question.id)
     );
 
     const invalidResponse = responses.find(
-      (response) =>
-        response.domainId !== domainId ||
-        !allowedQuestionIds.has(response.questionId) ||
-        response.value.trim().length === 0
+      (response) => !allowedQuestionIds.has(response.questionId)
     );
 
     if (invalidResponse) {
       return NextResponse.json(
-        {
-          message:
-            "Responses must belong to visible questions in this assessment section.",
-        },
+        { message: "One or more responses do not belong to this section." },
         { status: 400 }
       );
     }
 
-    const attempt = await prisma.assessmentAttempt.upsert({
+    const missingRequiredQuestion = domain.questions.find((question) => {
+      if (!question.isRequired) {
+        return false;
+      }
+
+      const response = responses.find(
+        (currentResponse) => currentResponse.questionId === question.id
+      );
+
+      return !response || !String(response.value || "").trim();
+    });
+
+    if (missingRequiredQuestion) {
+      return NextResponse.json(
+        { message: "Please answer all required questions in this section." },
+        { status: 400 }
+      );
+    }
+
+    const existingAttempt = await prisma.assessmentAttempt.findUnique({
       where: {
         userId_questionnaireId: {
           userId: carer.id,
           questionnaireId,
         },
       },
-      update: {
-        status: "IN_PROGRESS",
-      },
-      create: {
-        userId: carer.id,
-        questionnaireId,
-        status: "IN_PROGRESS",
-      },
     });
+
+    if (existingAttempt?.status === "COMPLETED") {
+      return NextResponse.json(
+        {
+          message:
+            "This assessment is already completed and locked. Your certificate is available.",
+        },
+        { status: 423 }
+      );
+    }
+
+    const attempt =
+      existingAttempt ||
+      (await prisma.assessmentAttempt.create({
+        data: {
+          userId: carer.id,
+          questionnaireId,
+          status: "IN_PROGRESS",
+        },
+      }));
 
     await prisma.$transaction(
       responses.map((response) =>
@@ -159,56 +187,56 @@ export async function POST(request: Request) {
             },
           },
           update: {
-            value: response.value,
+            value: String(response.value),
             domainId: response.domainId,
           },
           create: {
             attemptId: attempt.id,
             questionId: response.questionId,
             domainId: response.domainId,
-            value: response.value,
+            value: String(response.value),
           },
         })
       )
     );
 
-    const refreshedAttempt = await prisma.assessmentAttempt.findUnique({
+    const visibleDomains = questionnaire.domains;
+    const visibleQuestions = visibleDomains.flatMap(
+      (currentDomain) => currentDomain.questions
+    );
+
+    const savedResponses = await prisma.assessmentResponse.findMany({
       where: {
-        id: attempt.id,
-      },
-      include: {
-        responses: true,
-        questionnaire: {
-          include: {
-            domains: {
-              include: {
-                questions: {
-                  where: {
-                    isVisible: true,
-                    deletedAt: null,
-                  },
-                },
-              },
-            },
-          },
+        attemptId: attempt.id,
+        questionId: {
+          in: visibleQuestions.map((question) => question.id),
         },
       },
     });
 
-    const visibleQuestionIds =
-      refreshedAttempt?.questionnaire.domains.flatMap((assessmentDomain) =>
-        assessmentDomain.questions.map((question) => question.id)
-      ) || [];
-
     const answeredQuestionIds = new Set(
-      refreshedAttempt?.responses.map((response) => response.questionId) || []
+      savedResponses
+        .filter((response) => String(response.value || "").trim())
+        .map((response) => response.questionId)
+    );
+
+    const requiredQuestions = visibleQuestions.filter(
+      (question) => question.isRequired
+    );
+
+    const completedRequiredQuestions = requiredQuestions.filter((question) =>
+      answeredQuestionIds.has(question.id)
+    );
+
+    const completedDomains = visibleDomains.filter((currentDomain) =>
+      currentDomain.questions
+        .filter((question) => question.isRequired)
+        .every((question) => answeredQuestionIds.has(question.id))
     );
 
     const isComplete =
-      visibleQuestionIds.length > 0 &&
-      visibleQuestionIds.every((questionId) =>
-        answeredQuestionIds.has(questionId)
-      );
+      requiredQuestions.length > 0 &&
+      completedRequiredQuestions.length === requiredQuestions.length;
 
     const updatedAttempt = await prisma.assessmentAttempt.update({
       where: {
@@ -222,15 +250,32 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       message: isComplete
-        ? "Section saved. Assessment completed."
+        ? "Assessment completed. Your certificate is now available."
         : "Section saved successfully.",
-      attempt: updatedAttempt,
+      attempt: {
+        id: updatedAttempt.id,
+        status: updatedAttempt.status,
+        completedAt: updatedAttempt.completedAt,
+      },
+      progress: {
+        completedSections: completedDomains.length,
+        totalSections: visibleDomains.length,
+        completedQuestions: completedRequiredQuestions.length,
+        totalQuestions: requiredQuestions.length,
+        progressPercent:
+          requiredQuestions.length === 0
+            ? 0
+            : Math.round(
+                (completedRequiredQuestions.length / requiredQuestions.length) *
+                  100
+              ),
+      },
     });
   } catch (error) {
     console.error("Assessment response save error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong saving your section." },
+      { message: "Something went wrong saving assessment responses." },
       { status: 500 }
     );
   }

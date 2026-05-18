@@ -4,30 +4,22 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
-type User = {
-  id: string;
-  roleId?: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  roles: string[];
-};
-
 export default function LoginPage() {
   const router = useRouter();
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function getRedirectPath(user: User) {
-    if (
-      user.roles.includes("admin") ||
-      user.roles.includes("super_admin")
-    ) {
+  function getRedirectPath(roles: string[]) {
+    if (roles.includes("super_admin") || roles.includes("admin")) {
       return "/admin/dashboard";
     }
 
-    if (user.roles.includes("carer")) {
+    if (roles.includes("employer")) {
+      return "/employer/dashboard";
+    }
+
+    if (roles.includes("carer")) {
       return "/carer/dashboard";
     }
 
@@ -62,10 +54,13 @@ export default function LoginPage() {
         return;
       }
 
-      router.push(getRedirectPath(data.user));
+      const roles: string[] = data.user?.roles || [];
+      const redirectPath = getRedirectPath(roles);
+
+      router.push(redirectPath);
       router.refresh();
     } catch {
-      setError("Something went wrong. Please try again.");
+      setError("Something went wrong during login.");
     } finally {
       setLoading(false);
     }
@@ -99,7 +94,6 @@ export default function LoginPage() {
                     className="form-control rounded-4"
                     placeholder="Enter your email"
                     required
-                    autoComplete="email"
                   />
                 </div>
 
@@ -111,7 +105,6 @@ export default function LoginPage() {
                     className="form-control rounded-4"
                     placeholder="Enter your password"
                     required
-                    autoComplete="current-password"
                   />
                 </div>
 
@@ -126,7 +119,10 @@ export default function LoginPage() {
 
               <p className="text-center mt-4 mb-0">
                 New to CareAble?{" "}
-                <Link href="/register" className="fw-semibold text-decoration-none">
+                <Link
+                  href="/register"
+                  className="fw-semibold text-decoration-none"
+                >
                   Create an account
                 </Link>
               </p>
