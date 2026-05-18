@@ -2,6 +2,14 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 
+type DomainScore = {
+  domainId: string;
+  domainTitle: string;
+  score: number;
+  level: string;
+  levelDescription: string;
+};
+
 async function requireCarer() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("careable_session")?.value;
@@ -54,6 +62,41 @@ function formatCertificateDate(date: Date | null) {
   }).format(date);
 }
 
+function getCapabilityLevel(score: number) {
+  if (score >= 4) {
+    return {
+      level: "Strength area",
+      levelDescription: "High demonstrated capability",
+    };
+  }
+
+  if (score >= 3) {
+    return {
+      level: "Growth area",
+      levelDescription: "Developing competency",
+    };
+  }
+
+  return {
+    level: "Support area",
+    levelDescription: "Targeted learning recommended",
+  };
+}
+
+function parseLikertValue(value: string) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+
+  if (numericValue < 1 || numericValue > 5) {
+    return null;
+  }
+
+  return numericValue;
+}
+
 export async function GET() {
   try {
     const carer = await requireCarer();
@@ -75,18 +118,70 @@ export async function GET() {
       },
       include: {
         questionnaire: true,
+        responses: {
+          include: {
+            domain: true,
+            question: true,
+          },
+        },
       },
     });
 
     if (!completedAttempt) {
       return NextResponse.json(
         {
-          message:
-            "Certificate is locked until you complete your assessment.",
+          message: "Certificate is locked until you complete your assessment.",
         },
         { status: 403 }
       );
     }
+
+    const domainValues = new Map<
+      string,
+      {
+        domainTitle: string;
+        values: number[];
+      }
+    >();
+
+    for (const response of completedAttempt.responses) {
+      const numericValue = parseLikertValue(response.value);
+
+      if (numericValue === null) {
+        continue;
+      }
+
+      const currentDomain = domainValues.get(response.domainId) || {
+        domainTitle: response.domain.title,
+        values: [],
+      };
+
+      currentDomain.values.push(numericValue);
+      domainValues.set(response.domainId, currentDomain);
+    }
+
+    const domainScores: DomainScore[] = Array.from(domainValues.entries())
+      .map(([domainId, domain]) => {
+        const average =
+          domain.values.reduce((total, value) => total + value, 0) /
+          domain.values.length;
+
+        const roundedScore = Number(average.toFixed(1));
+        const capability = getCapabilityLevel(roundedScore);
+
+        return {
+          domainId,
+          domainTitle: domain.domainTitle,
+          score: roundedScore,
+          level: capability.level,
+          levelDescription: capability.levelDescription,
+        };
+      })
+      .sort((first, second) => second.score - first.score);
+
+    const topCapabilityAreas = domainScores.filter(
+      (domainScore) => domainScore.score >= 4
+    );
 
     return NextResponse.json({
       certificate: {
@@ -97,6 +192,9 @@ export async function GET() {
         completedAt: completedAttempt.completedAt,
         completedDate: formatCertificateDate(completedAttempt.completedAt),
         status: "Verified",
+        domainsCompleted: domainScores.length,
+        domainScores,
+        topCapabilityAreas,
       },
     });
   } catch (error) {

@@ -5,6 +5,14 @@ import { useEffect, useState } from "react";
 import Navbar from "../../components/Navbar";
 import Footer from "../../components/Footer";
 
+type DomainScore = {
+  domainId: string;
+  domainTitle: string;
+  score: number;
+  level: string;
+  levelDescription: string;
+};
+
 type Certificate = {
   certificateId: string;
   carerName: string;
@@ -13,6 +21,9 @@ type Certificate = {
   completedAt: string;
   completedDate: string;
   status: string;
+  domainsCompleted: number;
+  domainScores: DomainScore[];
+  topCapabilityAreas: DomainScore[];
 };
 
 export default function CarerCertificatePage() {
@@ -49,6 +60,18 @@ export default function CarerCertificatePage() {
 
   function handleDownloadPdf() {
     window.print();
+  }
+
+  function scoreBadgeClass(score: number) {
+    if (score >= 4) {
+      return "bg-success";
+    }
+
+    if (score >= 3) {
+      return "bg-warning text-dark";
+    }
+
+    return "bg-danger";
   }
 
   if (loading) {
@@ -154,7 +177,7 @@ export default function CarerCertificatePage() {
         .certificate-header {
           background: #0d6efd;
           color: #ffffff;
-          padding: 24px 42px;
+          padding: 22px 42px;
         }
 
         .certificate-title {
@@ -164,14 +187,14 @@ export default function CarerCertificatePage() {
         }
 
         .certificate-body {
-          padding: 54px 76px;
+          padding: 38px 70px;
           display: flex;
           flex-direction: column;
           justify-content: center;
         }
 
         .recipient-name {
-          font-size: clamp(2.4rem, 5vw, 4.2rem);
+          font-size: clamp(2.2rem, 4.5vw, 3.7rem);
           line-height: 1.1;
         }
 
@@ -179,21 +202,26 @@ export default function CarerCertificatePage() {
           width: 150px;
           height: 3px;
           background: #0d6efd;
-          margin: 22px auto;
+          margin: 18px auto;
           border-radius: 999px;
         }
 
         .recognition-copy {
-          max-width: 780px;
+          max-width: 820px;
           margin: 0 auto;
-          font-size: 1.05rem;
-          line-height: 1.7;
+          font-size: 1rem;
+          line-height: 1.55;
+        }
+
+        .capability-panel {
+          background: #f6f9ff;
+          border: 1px solid #dbe8ff;
         }
 
         .verification-strip {
           background: #f6f9ff;
           border-top: 1px solid #dbe8ff;
-          padding: 22px 42px;
+          padding: 18px 42px;
         }
 
         .certificate-meta-value {
@@ -220,23 +248,23 @@ export default function CarerCertificatePage() {
           }
 
           .certificate-header {
-            padding: 14mm 18mm 10mm;
+            padding: 10mm 16mm 8mm;
           }
 
           .certificate-body {
-            padding: 12mm 22mm;
-          }
-
-          .verification-strip {
             padding: 9mm 18mm;
           }
 
+          .verification-strip {
+            padding: 7mm 16mm;
+          }
+
           .recipient-name {
-            font-size: 34pt;
+            font-size: 30pt;
           }
 
           .recognition-copy {
-            font-size: 11pt;
+            font-size: 10pt;
           }
         }
 
@@ -310,18 +338,79 @@ export default function CarerCertificatePage() {
 
                     <div className="certificate-rule" />
 
-                    <p className="fs-5 text-muted mb-3">for completing</p>
+                    <p className="fs-5 text-muted mb-2">for completing</p>
 
-                    <h3 className="fw-bold mb-4">
+                    <h3 className="fw-bold mb-3">
                       {certificate.assessmentTitle}
                     </h3>
 
-                    <p className="recognition-copy text-muted mb-0">
+                    <p className="recognition-copy text-muted mb-4">
                       This recognises informal caregiving capabilities
                       demonstrated through the CareAble self-assessment process.
                       These capabilities reflect practical care and support
                       skills developed through unpaid caregiving experience.
                     </p>
+
+                    <div className="capability-panel rounded-3 p-3 text-start">
+                      <div className="row g-3">
+                        <div className="col-lg-5">
+                          <small className="text-muted d-block mb-2">
+                            Domains completed
+                          </small>
+                          <div className="fw-bold fs-5">
+                            {certificate.domainsCompleted}
+                          </div>
+                        </div>
+
+                        <div className="col-lg-7">
+                          <small className="text-muted d-block mb-2">
+                            Top capability areas
+                          </small>
+
+                          {certificate.topCapabilityAreas.length > 0 ? (
+                            <div className="d-flex flex-wrap gap-2">
+                              {certificate.topCapabilityAreas.map((area) => (
+                                <span
+                                  key={area.domainId}
+                                  className="badge bg-success"
+                                >
+                                  {area.domainTitle} ({area.score.toFixed(1)})
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-muted">
+                              No domain reached 4.0 or above.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="row g-2 mt-2">
+                        {certificate.domainScores.map((domainScore) => (
+                          <div className="col-md-6" key={domainScore.domainId}>
+                            <div className="d-flex justify-content-between align-items-center border rounded-3 px-3 py-2 bg-white">
+                              <div>
+                                <div className="fw-semibold">
+                                  {domainScore.domainTitle}
+                                </div>
+                                <small className="text-muted">
+                                  {domainScore.levelDescription}
+                                </small>
+                              </div>
+
+                              <span
+                                className={`badge ${scoreBadgeClass(
+                                  domainScore.score
+                                )}`}
+                              >
+                                {domainScore.score.toFixed(1)}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="verification-strip">
