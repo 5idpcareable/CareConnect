@@ -31,11 +31,12 @@ function formatDate(value: string) {
   });
 }
 
-export default function CertificateValidatePage() {
+export default function EmployerDashboardPage() {
   const [certificate, setCertificate] = useState<ValidCertificate | null>(null);
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleValidate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -74,6 +75,17 @@ export default function CertificateValidatePage() {
     }
   }
 
+  async function handleLogout() {
+    setLoggingOut(true);
+
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+
+    window.location.href = "/";
+  }
+
   return (
     <>
       <Navbar />
@@ -82,19 +94,24 @@ export default function CertificateValidatePage() {
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-lg-9">
-              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-start gap-3 mb-4">
                 <div>
-                  <h1 className="fw-bold text-primary mb-1">
-                    Validate Certificate
+                  <h1 className="fw-bold text-primary mb-2">
+                    Employer Certificate Check
                   </h1>
                   <p className="text-muted mb-0">
-                    Enter a CareAble certificate ID to confirm authenticity.
+                    Validate a CareAble certificate using its certificate ID.
                   </p>
                 </div>
 
-                <Link href="/admin/dashboard" className="btn btn-outline-primary">
-                  Back to Dashboard
-                </Link>
+                <button
+                  type="button"
+                  className="btn btn-outline-danger"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  {loggingOut ? "Logging out..." : "Logout"}
+                </button>
               </div>
 
               <div className="card border-0 shadow-sm mb-4">
@@ -109,7 +126,7 @@ export default function CertificateValidatePage() {
                         name="certificateId"
                         type="text"
                         className="form-control form-control-lg"
-                        placeholder="Example: cm..."
+                        placeholder="Paste certificate ID"
                         required
                       />
 
@@ -147,8 +164,8 @@ export default function CertificateValidatePage() {
                         </h2>
 
                         <p className="text-muted mb-0">
-                          This certificate was issued by CareAble and matches a
-                          completed carer assessment.
+                          This certificate exists in CareAble and belongs to a
+                          completed assessment.
                         </p>
                       </div>
 
@@ -224,6 +241,12 @@ export default function CertificateValidatePage() {
                   </div>
                 </div>
               )}
+
+              <div className="text-center mt-4">
+                <Link href="/" className="text-decoration-none">
+                  Back to Home
+                </Link>
+              </div>
             </div>
           </div>
         </div>

@@ -208,3 +208,16 @@ model AssessmentResponse {
 
   @@unique([attemptId, questionId])
 }
+
+model EmployerAccessRequest {
+  id           String    @id @default(cuid())
+  companyName  String
+  contactName  String
+  email        String    @unique
+  phone        String
+  postcode     String
+  passwordHash String
+  status       String    @default("PENDING")
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+}
