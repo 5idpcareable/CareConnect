@@ -33,16 +33,16 @@ function formatDate(value: string) {
   });
 }
 
-function capabilityBadgeClass(level: string) {
+function capabilityClass(level: string) {
   if (level === "Strength area") {
-    return "bg-success";
+    return "text-success";
   }
 
   if (level === "Growth area") {
-    return "bg-primary";
+    return "text-primary";
   }
 
-  return "bg-warning text-dark";
+  return "text-warning";
 }
 
 export default function CarerCertificatePage() {
@@ -80,11 +80,11 @@ export default function CarerCertificatePage() {
 
   const topCapabilityText = useMemo(() => {
     if (!certificate || certificate.topCapabilityAreas.length === 0) {
-      return "No strength areas above 4.0 were identified in this assessment.";
+      return "No top capability area above 4.0 was identified.";
     }
 
     return certificate.topCapabilityAreas
-      .map((domain) => domain.title)
+      .map((domain) => `${domain.title} (${domain.score.toFixed(1)})`)
       .join(", ");
   }, [certificate]);
 
@@ -140,62 +140,101 @@ export default function CarerCertificatePage() {
     <>
       <Navbar />
 
-      <style jsx>{`
-        .certificate-shell {
-          max-width: 1100px;
+      <style jsx global>{`
+        .certificate-wrap {
+          max-width: 1120px;
           margin: 0 auto;
         }
 
-        .certificate-card {
+        .certificate-page {
           background: #ffffff;
           border: 2px solid #0d6efd;
-          border-radius: 12px;
-          padding: 40px;
+          border-radius: 14px;
+          padding: 22px;
         }
 
         .certificate-inner {
           border: 1px solid #9ec5fe;
           border-radius: 10px;
-          padding: 36px;
+          padding: 28px 34px;
+          min-height: 680px;
+          display: flex;
+          flex-direction: column;
         }
 
         .certificate-label {
-          letter-spacing: 0.16em;
+          letter-spacing: 0.18em;
           color: #0d6efd;
-          font-weight: 700;
+          font-weight: 800;
           text-transform: uppercase;
+          font-size: 0.86rem;
         }
 
-        .certificate-grid {
+        .meta-grid {
           display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 16px;
+          grid-template-columns: 1.25fr 1.25fr 1fr 0.75fr;
+          gap: 10px;
         }
 
-        .certificate-meta {
+        .meta-box {
           background: #f8f9fa;
           border-radius: 8px;
-          padding: 16px;
+          padding: 10px 12px;
           min-width: 0;
           overflow-wrap: anywhere;
+          font-size: 0.9rem;
         }
 
-        .score-card {
-          border: 1px solid #dee2e6;
+        .top-box {
+          background: #eef5ff;
+          border: 1px solid #cfe2ff;
           border-radius: 10px;
-          padding: 16px;
-          background: #ffffff;
+          padding: 12px 14px;
+        }
+
+        .score-table {
+          font-size: 0.82rem;
+        }
+
+        .score-table th,
+        .score-table td {
+          padding: 0.35rem 0.45rem;
         }
 
         @media print {
+          @page {
+            size: A4 landscape;
+            margin: 8mm;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          #certificate-print-area,
+          #certificate-print-area * {
+            visibility: visible !important;
+          }
+
+          #certificate-print-area {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            background: #ffffff !important;
+          }
+
           nav,
           footer,
           .no-print {
             display: none !important;
           }
 
+          html,
           body {
             background: #ffffff !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
 
           main {
@@ -203,44 +242,56 @@ export default function CarerCertificatePage() {
             background: #ffffff !important;
           }
 
-          .certificate-shell {
-            max-width: 100%;
+          .container {
+            max-width: 100% !important;
+            width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
           }
 
-          .certificate-card {
-            border: 2px solid #0d6efd;
+          .certificate-wrap {
+            max-width: 100% !important;
+            width: 100% !important;
+            margin: 0 !important;
+          }
+
+          .certificate-page {
             box-shadow: none !important;
             page-break-inside: avoid;
+            break-inside: avoid;
+            border-radius: 0 !important;
+            min-height: 190mm;
           }
 
           .certificate-inner {
-            padding: 28px;
+            min-height: 176mm;
+            padding: 18px 24px;
           }
         }
 
         @media (max-width: 768px) {
-          .certificate-card {
-            padding: 20px;
+          .certificate-page {
+            padding: 14px;
           }
 
           .certificate-inner {
-            padding: 22px;
+            padding: 20px;
+            min-height: auto;
           }
 
-          .certificate-grid {
+          .meta-grid {
             grid-template-columns: 1fr;
           }
         }
       `}</style>
 
       <main className="bg-light py-5">
-        <div className="container certificate-shell">
+        <div className="container certificate-wrap">
           <div className="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4 no-print">
             <div>
               <h1 className="fw-bold text-primary mb-1">Certificate</h1>
               <p className="text-muted mb-0">
-                Skill recognition certificate generated from your completed
-                assessment.
+                One-page CareAble skill recognition certificate.
               </p>
             </div>
 
@@ -268,85 +319,85 @@ export default function CarerCertificatePage() {
             </div>
           </div>
 
-          <section className="certificate-card shadow-sm">
+          <section
+            id="certificate-print-area"
+            className="certificate-page shadow-sm"
+          >
             <div className="certificate-inner">
-              <div className="text-center mb-4">
-                <div className="certificate-label mb-3">
+              <div className="text-center mb-3">
+                <div className="certificate-label mb-2">
                   Certificate of Skill Recognition
                 </div>
 
-                <h2 className="fw-bold mb-4">CareAble</h2>
+                <h2 className="fw-bold mb-2">CareAble</h2>
 
-                <p className="text-muted mb-2">
-                  This certificate is awarded to
-                </p>
+                <p className="text-muted mb-1">This certificate is awarded to</p>
 
-                <h1 className="fw-bold text-primary mb-3">
+                <h1 className="fw-bold text-primary mb-2">
                   {certificate.carerName}
                 </h1>
 
-                <p className="text-muted mb-1">for completing the</p>
+                <p className="text-muted mb-1">for completing</p>
 
-                <h3 className="fw-bold mb-4">
+                <h3 className="fw-bold mb-3">
                   {certificate.assessmentTitle}
                 </h3>
 
-                <p className="text-muted mx-auto" style={{ maxWidth: "760px" }}>
+                <p className="text-muted mx-auto mb-3" style={{ maxWidth: 850 }}>
                   This recognises caregiving skills demonstrated through the
-                  CareAble self-assessment process, including practical
-                  capabilities built through informal care, communication,
-                  planning, coordination, and support activities.
+                  CareAble self-assessment process. Domain scores are calculated
+                  as the mean of Likert 1-5 responses and grouped into strength,
+                  growth, and support capability areas.
                 </p>
               </div>
 
-              <div className="certificate-grid my-4">
-                <div className="certificate-meta">
+              <div className="meta-grid mb-3">
+                <div className="meta-box">
                   <small className="text-muted d-block">Certificate ID</small>
                   <strong>{certificate.id}</strong>
                 </div>
 
-                <div className="certificate-meta">
+                <div className="meta-box">
                   <small className="text-muted d-block">Carer Email</small>
                   <strong>{certificate.carerEmail}</strong>
                 </div>
 
-                <div className="certificate-meta">
+                <div className="meta-box">
                   <small className="text-muted d-block">Completion Date</small>
                   <strong>{formatDate(certificate.completionDate)}</strong>
                 </div>
 
-                <div className="certificate-meta">
+                <div className="meta-box">
                   <small className="text-muted d-block">Status</small>
-                  <strong className="text-success">{certificate.status}</strong>
+                  <strong className="text-success">Verified</strong>
                 </div>
               </div>
 
-              <div className="row g-3 mb-4">
-                <div className="col-lg-5">
-                  <div className="score-card h-100">
-                    <h5 className="fw-bold mb-2">Domains Completed</h5>
-                    <div className="display-6 fw-bold text-primary">
+              <div className="top-box mb-3">
+                <div className="row g-3 align-items-center">
+                  <div className="col-md-3">
+                    <small className="text-muted d-block">
+                      Domains Completed
+                    </small>
+                    <div className="h3 fw-bold text-primary mb-0">
                       {certificate.domainsCompleted}
                     </div>
-                    <p className="text-muted mb-0">
-                      Skill domains completed in this assessment.
-                    </p>
                   </div>
-                </div>
 
-                <div className="col-lg-7">
-                  <div className="score-card h-100">
-                    <h5 className="fw-bold mb-2">Top Capability Areas</h5>
-                    <p className="text-muted mb-0">{topCapabilityText}</p>
+                  <div className="col-md-9">
+                    <small className="text-muted d-block">
+                      Top Capability Areas (score 4.0 and above)
+                    </small>
+                    <strong>{topCapabilityText}</strong>
                   </div>
                 </div>
               </div>
 
-              <div className="mb-4">
-                <h5 className="fw-bold mb-3">Domain Score Summary</h5>
+              <div className="mb-3">
+                <h5 className="fw-bold mb-2">Domain Score Summary</h5>
 
                 <div className="table-responsive">
-                  <table className="table align-middle">
+                  <table className="table table-sm align-middle score-table mb-0">
                     <thead>
                       <tr>
                         <th>Domain</th>
@@ -362,13 +413,13 @@ export default function CarerCertificatePage() {
                           <td className="fw-semibold">{domain.title}</td>
                           <td>{domain.score.toFixed(1)}</td>
                           <td>
-                            <span
-                              className={`badge ${capabilityBadgeClass(
+                            <strong
+                              className={capabilityClass(
                                 domain.capabilityLevel
-                              )}`}
+                              )}
                             >
                               {domain.capabilityLevel}
-                            </span>
+                            </strong>
                           </td>
                           <td>{domain.capabilityDescription}</td>
                         </tr>
@@ -378,9 +429,13 @@ export default function CarerCertificatePage() {
                 </div>
               </div>
 
-              <p className="text-center text-muted mb-0">
-                Verified by CareAble
-              </p>
+              <div className="mt-auto text-center">
+                <p className="text-muted small mb-1">
+                  Capability scale: 4.0-5.0 Strength area, 3.0-3.9 Growth area,
+                  1.0-2.9 Support area.
+                </p>
+                <p className="text-muted mb-0">Verified by CareAble</p>
+              </div>
             </div>
           </section>
         </div>

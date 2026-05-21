@@ -19,10 +19,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  roles              UserRole[]
-  sessions           Session[]
-  carerProfile       CarerProfile?
-  assessmentAttempts AssessmentAttempt[]
+  roles               UserRole[]
+  sessions            Session[]
+  carerProfile        CarerProfile?
+  assessmentAttempts  AssessmentAttempt[]
+  passwordResetTokens PasswordResetToken[]
 
   createdQuestionnaires Questionnaire[] @relation("QuestionnaireCreatedBy")
   updatedQuestionnaires Questionnaire[] @relation("QuestionnaireUpdatedBy")
@@ -56,6 +57,17 @@ model Session {
   id        String   @id @default(cuid())
   userId    String
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  userId    String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -179,8 +191,6 @@ model AssessmentAttempt {
   user          User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   questionnaire Questionnaire        @relation(fields: [questionnaireId], references: [id], onDelete: Cascade)
   responses     AssessmentResponse[]
-
-  @@unique([userId, questionnaireId])
 }
 
 model AssessmentResponse {

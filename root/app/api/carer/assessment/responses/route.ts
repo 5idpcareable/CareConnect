@@ -148,34 +148,26 @@ export async function POST(request: Request) {
       );
     }
 
-    const existingAttempt = await prisma.assessmentAttempt.findUnique({
+    let attempt = await prisma.assessmentAttempt.findFirst({
       where: {
-        userId_questionnaireId: {
-          userId: carer.id,
-          questionnaireId,
-        },
+        userId: carer.id,
+        questionnaireId,
+        status: "IN_PROGRESS",
+      },
+      orderBy: {
+        updatedAt: "desc",
       },
     });
 
-    if (existingAttempt?.status === "COMPLETED") {
-      return NextResponse.json(
-        {
-          message:
-            "This assessment is already completed and locked. Your certificate is available.",
-        },
-        { status: 423 }
-      );
-    }
-
-    const attempt =
-      existingAttempt ||
-      (await prisma.assessmentAttempt.create({
+    if (!attempt) {
+      attempt = await prisma.assessmentAttempt.create({
         data: {
           userId: carer.id,
           questionnaireId,
           status: "IN_PROGRESS",
         },
-      }));
+      });
+    }
 
     await prisma.$transaction(
       responses.map((response) =>

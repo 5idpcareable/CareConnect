@@ -42,6 +42,62 @@ async function requireCarer() {
   return session.user;
 }
 
+function calculateProgress(args: {
+  domains: {
+    id: string;
+    questions: {
+      id: string;
+      isRequired: boolean;
+    }[];
+  }[];
+  responses: {
+    questionId: string;
+    value: string;
+  }[];
+}) {
+  const requiredQuestions = args.domains
+    .flatMap((domain) => domain.questions)
+    .filter((question) => question.isRequired);
+
+  const answeredQuestionIds = new Set(
+    args.responses
+      .filter((response) => String(response.value || "").trim())
+      .map((response) => response.questionId)
+  );
+
+  const completedRequiredQuestions = requiredQuestions.filter((question) =>
+    answeredQuestionIds.has(question.id)
+  );
+
+  const completedSections = args.domains.filter((domain) => {
+    const domainRequiredQuestions = domain.questions.filter(
+      (question) => question.isRequired
+    );
+
+    return (
+      domainRequiredQuestions.length > 0 &&
+      domainRequiredQuestions.every((question) =>
+        answeredQuestionIds.has(question.id)
+      )
+    );
+  }).length;
+
+  const progressPercent =
+    requiredQuestions.length === 0
+      ? 0
+      : Math.round(
+          (completedRequiredQuestions.length / requiredQuestions.length) * 100
+        );
+
+  return {
+    completedSections,
+    totalSections: args.domains.length,
+    completedQuestions: completedRequiredQuestions.length,
+    totalQuestions: requiredQuestions.length,
+    progressPercent,
+  };
+}
+
 export async function GET() {
   try {
     const carer = await requireCarer();
@@ -53,36 +109,7 @@ export async function GET() {
       );
     }
 
-    const completedCertificateAttempt = await prisma.assessmentAttempt.findFirst(
-      {
-        where: {
-          userId: carer.id,
-          status: "COMPLETED",
-        },
-        orderBy: {
-          completedAt: "desc",
-        },
-        include: {
-          questionnaire: true,
-        },
-      }
-    );
-
-    const certificate = completedCertificateAttempt
-      ? {
-          available: true,
-          certificateId: completedCertificateAttempt.id,
-          assessmentTitle: completedCertificateAttempt.questionnaire.title,
-          completedAt: completedCertificateAttempt.completedAt,
-        }
-      : {
-          available: false,
-          certificateId: null,
-          assessmentTitle: null,
-          completedAt: null,
-        };
-
-    const questionnaire = await prisma.questionnaire.findFirst({
+    const activeQuestionnaire = await prisma.questionnaire.findFirst({
       where: {
         isActive: true,
       },
@@ -98,13 +125,44 @@ export async function GET() {
                 isVisible: true,
                 deletedAt: null,
               },
+              select: {
+                id: true,
+                isRequired: true,
+              },
             },
           },
         },
       },
     });
 
-    if (!questionnaire) {
+    const latestCompletedAttempt = await prisma.assessmentAttempt.findFirst({
+      where: {
+        userId: carer.id,
+        status: "COMPLETED",
+      },
+      orderBy: {
+        completedAt: "desc",
+      },
+      include: {
+        questionnaire: true,
+      },
+    });
+
+    const certificate = latestCompletedAttempt
+      ? {
+          available: true,
+          certificateId: latestCompletedAttempt.id,
+          assessmentTitle: latestCompletedAttempt.questionnaire.title,
+          completedAt: latestCompletedAttempt.completedAt,
+        }
+      : {
+          available: false,
+          certificateId: null,
+          assessmentTitle: null,
+          completedAt: null,
+        };
+
+    if (!activeQuestionnaire) {
       return NextResponse.json({
         status: "NOT_AVAILABLE",
         label: "Not Available",
@@ -117,76 +175,73 @@ export async function GET() {
       });
     }
 
-    const visibleDomains = questionnaire.domains.filter(
-      (domain) => domain.questions.length > 0
-    );
-
-    const totalSections = visibleDomains.length;
-    const totalQuestions = visibleDomains.reduce(
-      (total, domain) => total + domain.questions.length,
-      0
-    );
-
-    const attempt = await prisma.assessmentAttempt.findUnique({
+    const inProgressAttempt = await prisma.assessmentAttempt.findFirst({
       where: {
-        userId_questionnaireId: {
-          userId: carer.id,
-          questionnaireId: questionnaire.id,
-        },
+        userId: carer.id,
+        questionnaireId: activeQuestionnaire.id,
+        status: "IN_PROGRESS",
+      },
+      orderBy: {
+        updatedAt: "desc",
       },
       include: {
         responses: true,
       },
     });
 
-    if (!attempt) {
+    if (inProgressAttempt) {
+      const progress = calculateProgress({
+        domains: activeQuestionnaire.domains,
+        responses: inProgressAttempt.responses,
+      });
+
       return NextResponse.json({
-        status: "NOT_STARTED",
-        label: "Not Started",
-        completedSections: 0,
-        totalSections,
-        completedQuestions: 0,
-        totalQuestions,
-        progressPercent: 0,
+        status: "IN_PROGRESS",
+        label: "In Progress",
+        ...progress,
         certificate,
       });
     }
 
-    const answeredQuestionIds = new Set(
-      attempt.responses.map((response) => response.questionId)
-    );
+    const completedAttemptForActiveQuestionnaire =
+      await prisma.assessmentAttempt.findFirst({
+        where: {
+          userId: carer.id,
+          questionnaireId: activeQuestionnaire.id,
+          status: "COMPLETED",
+        },
+        orderBy: {
+          completedAt: "desc",
+        },
+        include: {
+          responses: true,
+        },
+      });
 
-    const completedSections = visibleDomains.filter((domain) =>
-      domain.questions.every((question) => answeredQuestionIds.has(question.id))
-    ).length;
+    if (completedAttemptForActiveQuestionnaire) {
+      const progress = calculateProgress({
+        domains: activeQuestionnaire.domains,
+        responses: completedAttemptForActiveQuestionnaire.responses,
+      });
 
-    const completedQuestions = visibleDomains.reduce(
-      (total, domain) =>
-        total +
-        domain.questions.filter((question) =>
-          answeredQuestionIds.has(question.id)
-        ).length,
-      0
-    );
-
-    const progressPercent =
-      totalQuestions > 0
-        ? Math.round((completedQuestions / totalQuestions) * 100)
-        : 0;
-
-    const status =
-      completedSections === totalSections && totalSections > 0
-        ? "COMPLETED"
-        : "IN_PROGRESS";
+      return NextResponse.json({
+        status: "COMPLETED",
+        label: "Completed",
+        ...progress,
+        certificate,
+      });
+    }
 
     return NextResponse.json({
-      status,
-      label: status === "COMPLETED" ? "Completed" : "In Progress",
-      completedSections,
-      totalSections,
-      completedQuestions,
-      totalQuestions,
-      progressPercent,
+      status: "NOT_STARTED",
+      label: "Not Started",
+      completedSections: 0,
+      totalSections: activeQuestionnaire.domains.length,
+      completedQuestions: 0,
+      totalQuestions: activeQuestionnaire.domains.flatMap(
+        (domain) => domain.questions
+      ).length,
+      progressPercent: 0,
       certificate,
     });
   } catch (error) {

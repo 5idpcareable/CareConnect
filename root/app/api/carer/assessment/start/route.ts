@@ -42,13 +42,13 @@ async function requireCarer() {
   return session.user;
 }
 
-export async function GET() {
+export async function POST() {
   try {
     const carer = await requireCarer();
 
     if (!carer) {
       return NextResponse.json(
-        { message: "Only carers can access this assessment." },
+        { message: "Only carers can start assessments." },
         { status: 403 }
       );
     }
@@ -56,28 +56,6 @@ export async function GET() {
     const questionnaire = await prisma.questionnaire.findFirst({
       where: {
         isActive: true,
-      },
-      include: {
-        domains: {
-          where: {
-            isVisible: true,
-            deletedAt: null,
-          },
-          orderBy: {
-            order: "asc",
-          },
-          include: {
-            questions: {
-              where: {
-                isVisible: true,
-                deletedAt: null,
-              },
-              orderBy: {
-                order: "asc",
-              },
-            },
-          },
-        },
       },
     });
 
@@ -91,7 +69,7 @@ export async function GET() {
       );
     }
 
-    const inProgressAttempt = await prisma.assessmentAttempt.findFirst({
+    const existingInProgressAttempt = await prisma.assessmentAttempt.findFirst({
       where: {
         userId: carer.id,
         questionnaireId: questionnaire.id,
@@ -100,28 +78,32 @@ export async function GET() {
       orderBy: {
         updatedAt: "desc",
       },
-      include: {
-        responses: true,
+    });
+
+    if (existingInProgressAttempt) {
+      return NextResponse.json({
+        message: "Existing in-progress assessment found.",
+        attempt: existingInProgressAttempt,
+      });
+    }
+
+    const attempt = await prisma.assessmentAttempt.create({
+      data: {
+        userId: carer.id,
+        questionnaireId: questionnaire.id,
+        status: "IN_PROGRESS",
       },
     });
 
     return NextResponse.json({
-      questionnaire,
-      attempt: inProgressAttempt
-        ? {
-            id: inProgressAttempt.id,
-            status: inProgressAttempt.status,
-            startedAt: inProgressAttempt.startedAt,
-            updatedAt: inProgressAttempt.updatedAt,
-          }
-        : null,
-      responses: inProgressAttempt?.responses || [],
+      message: "New assessment started.",
+      attempt,
     });
   } catch (error) {
-    console.error("Carer assessment load error:", error);
+    console.error("Assessment start error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong loading the assessment." },
+      { message: "Something went wrong starting assessment." },
       { status: 500 }
     );
   }

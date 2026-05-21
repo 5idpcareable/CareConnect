@@ -96,6 +96,10 @@ export default function CarerAssessmentPage() {
   const [activeDomainId, setActiveDomainId] = useState("");
   const [answers, setAnswers] = useState<Record<string, AnswerValue>>({});
   const [savedDomains, setSavedDomains] = useState<Record<string, boolean>>({});
+  const [progress, setProgress] = useState({
+    completedSections: 0,
+    totalSections: 0,
+  });
 
   const [loading, setLoading] = useState(true);
   const [savingSection, setSavingSection] = useState(false);
@@ -112,6 +116,12 @@ export default function CarerAssessmentPage() {
     if (statusResponse.ok) {
       const statusData = await statusResponse.json();
       setAssessmentStatus(statusData);
+
+      setProgress({
+        completedSections: statusData.completedSections || 0,
+        totalSections: statusData.totalSections || 0,
+      });
+
       return statusData as AssessmentStatus;
     }
 
@@ -202,6 +212,13 @@ export default function CarerAssessmentPage() {
 
         setAnswers(responseMap);
         setSavedDomains(domainSaveMap);
+
+        setProgress((currentProgress) => ({
+          completedSections:
+            currentProgress.completedSections ||
+            Object.values(domainSaveMap).filter(Boolean).length,
+          totalSections: questionnaireWithVisibleDomains.domains.length,
+        }));
       } catch {
         setError("Something went wrong loading your assessment.");
       } finally {
@@ -235,10 +252,6 @@ export default function CarerAssessmentPage() {
       (domain) => domain.id === activeDomain.id
     );
   }, [questionnaire, activeDomain]);
-
-  const completedDomainCount = useMemo(() => {
-    return Object.values(savedDomains).filter(Boolean).length;
-  }, [savedDomains]);
 
   function handleAnswerChange(questionId: string, value: string) {
     if (isCompleted) {
@@ -327,6 +340,13 @@ export default function CarerAssessmentPage() {
         ...currentSavedDomains,
         [activeDomain.id]: true,
       }));
+
+      if (data.progress) {
+        setProgress({
+          completedSections: data.progress.completedSections || 0,
+          totalSections: data.progress.totalSections || 0,
+        });
+      }
 
       setSuccess(data.message || "Section saved successfully.");
       await loadStatus();
@@ -575,8 +595,9 @@ export default function CarerAssessmentPage() {
                       </div>
 
                       <span className="badge bg-primary rounded-pill align-self-start px-3 py-2">
-                        {completedDomainCount} of{" "}
-                        {questionnaire.domains.length} sections saved
+                        {progress.completedSections} of{" "}
+                        {progress.totalSections || questionnaire.domains.length}{" "}
+                        sections saved
                       </span>
                     </div>
 

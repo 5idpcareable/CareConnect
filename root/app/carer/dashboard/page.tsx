@@ -14,13 +14,6 @@ type User = {
   roles: string[];
 };
 
-type CertificateInfo = {
-  available: boolean;
-  certificateId: string | null;
-  assessmentTitle: string | null;
-  completedAt: string | null;
-};
-
 type AssessmentStatus = {
   status: "NOT_AVAILABLE" | "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   label: string;
@@ -29,14 +22,12 @@ type AssessmentStatus = {
   completedQuestions: number;
   totalQuestions: number;
   progressPercent: number;
-  certificate?: CertificateInfo;
-};
-
-const emptyCertificate: CertificateInfo = {
-  available: false,
-  certificateId: null,
-  assessmentTitle: null,
-  completedAt: null,
+  certificate?: {
+    available: boolean;
+    certificateId: string | null;
+    assessmentTitle: string | null;
+    completedAt: string | null;
+  };
 };
 
 export default function CarerDashboardPage() {
@@ -44,6 +35,8 @@ export default function CarerDashboardPage() {
   const [assessmentStatus, setAssessmentStatus] =
     useState<AssessmentStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [startingAssessment, setStartingAssessment] = useState(false);
+  const [startError, setStartError] = useState("");
 
   useEffect(() => {
     async function loadDashboard() {
@@ -87,6 +80,31 @@ export default function CarerDashboardPage() {
 
     loadDashboard();
   }, []);
+
+  async function handleStartNewAssessment() {
+    setStartError("");
+    setStartingAssessment(true);
+
+    try {
+      const response = await fetch("/api/carer/assessment/start", {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStartError(data.message || "Could not start assessment.");
+        return;
+      }
+
+      window.location.href = "/carer/assessment";
+    } catch {
+      setStartError("Something went wrong starting assessment.");
+    } finally {
+      setStartingAssessment(false);
+    }
+  }
 
   function assessmentBadgeClass(status?: AssessmentStatus["status"]) {
     if (status === "COMPLETED") {
@@ -146,11 +164,24 @@ export default function CarerDashboardPage() {
       completedQuestions: 0,
       totalQuestions: 0,
       progressPercent: 0,
-      certificate: emptyCertificate,
+      certificate: {
+        available: false,
+        certificateId: null,
+        assessmentTitle: null,
+        completedAt: null,
+      },
     } as AssessmentStatus);
 
-  const certificateInfo = safeAssessmentStatus.certificate || emptyCertificate;
-  const hasCertificate = certificateInfo.available;
+  const safeCertificate = safeAssessmentStatus.certificate || {
+    available: false,
+    certificateId: null,
+    assessmentTitle: null,
+    completedAt: null,
+  };
+
+  const hasCertificate = safeCertificate.available;
+  const hasCompletedAssessment = safeAssessmentStatus.status === "COMPLETED";
+  const hasAvailableAssessment = safeAssessmentStatus.status !== "NOT_AVAILABLE";
 
   return (
     <>
@@ -173,6 +204,8 @@ export default function CarerDashboardPage() {
               </span>
             </div>
           </div>
+
+          {startError && <div className="alert alert-danger">{startError}</div>}
 
           <div className="row g-4 mb-4">
             <div className="col-md-4">
@@ -236,16 +269,42 @@ export default function CarerDashboardPage() {
                     {safeAssessmentStatus.totalSections} sections saved
                   </small>
 
-                  <Link
-                    href="/carer/assessment"
-                    className={`btn btn-sm ${
-                      safeAssessmentStatus.status === "NOT_AVAILABLE"
-                        ? "btn-outline-secondary disabled"
-                        : "btn-primary"
-                    }`}
-                  >
-                    {assessmentButtonText(safeAssessmentStatus.status)}
-                  </Link>
+                  <div className="d-flex flex-wrap gap-2">
+                    {!hasCompletedAssessment && (
+                      <Link
+                        href="/carer/assessment"
+                        className={`btn btn-sm ${
+                          safeAssessmentStatus.status === "NOT_AVAILABLE"
+                            ? "btn-outline-secondary disabled"
+                            : "btn-primary"
+                        }`}
+                      >
+                        {assessmentButtonText(safeAssessmentStatus.status)}
+                      </Link>
+                    )}
+
+                    {hasCompletedAssessment && (
+                      <button
+                        type="button"
+                        className="btn btn-sm btn-primary"
+                        onClick={handleStartNewAssessment}
+                        disabled={startingAssessment || !hasAvailableAssessment}
+                      >
+                        {startingAssessment
+                          ? "Starting..."
+                          : "Start New Assessment"}
+                      </button>
+                    )}
+
+                    {hasCompletedAssessment && (
+                      <Link
+                        href="/carer/assessment"
+                        className="btn btn-sm btn-outline-primary"
+                      >
+                        View Latest Assessment
+                      </Link>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -256,8 +315,8 @@ export default function CarerDashboardPage() {
                   <h5 className="fw-bold">Certificate</h5>
 
                   <p className="text-muted">
-                    Your completed assessment certificates remain available even
-                    when new assessments are published.
+                    Completed assessment certificates remain available even when
+                    new assessments are started.
                   </p>
 
                   <span
@@ -268,9 +327,9 @@ export default function CarerDashboardPage() {
                     {hasCertificate ? "Available" : "Locked"}
                   </span>
 
-                  {hasCertificate && certificateInfo.assessmentTitle && (
+                  {hasCertificate && safeCertificate.assessmentTitle && (
                     <small className="text-muted d-block mt-2">
-                      Latest: {certificateInfo.assessmentTitle}
+                      Latest: {safeCertificate.assessmentTitle}
                     </small>
                   )}
 
@@ -296,20 +355,32 @@ export default function CarerDashboardPage() {
               <h4 className="fw-bold mb-3">Next Step</h4>
 
               <p className="text-muted">
-                Continue your current assessment to recognise the skills you have
-                built through caregiving experience.
+                {hasCompletedAssessment
+                  ? "You can start a new assessment to record updated caregiving skills while keeping your completed certificate history."
+                  : "Continue your current assessment to recognise the skills you have built through caregiving experience."}
               </p>
 
-              <Link
-                href="/carer/assessment"
-                className={`btn px-4 ${
-                  safeAssessmentStatus.status === "NOT_AVAILABLE"
-                    ? "btn-outline-secondary disabled"
-                    : "btn-primary"
-                }`}
-              >
-                {assessmentButtonText(safeAssessmentStatus.status)}
-              </Link>
+              {hasCompletedAssessment ? (
+                <button
+                  type="button"
+                  className="btn btn-primary px-4"
+                  onClick={handleStartNewAssessment}
+                  disabled={startingAssessment || !hasAvailableAssessment}
+                >
+                  {startingAssessment ? "Starting..." : "Start New Assessment"}
+                </button>
+              ) : (
+                <Link
+                  href="/carer/assessment"
+                  className={`btn px-4 ${
+                    safeAssessmentStatus.status === "NOT_AVAILABLE"
+                      ? "btn-outline-secondary disabled"
+                      : "btn-primary"
+                  }`}
+                >
+                  {assessmentButtonText(safeAssessmentStatus.status)}
+                </Link>
+              )}
             </div>
           </div>
         </div>
