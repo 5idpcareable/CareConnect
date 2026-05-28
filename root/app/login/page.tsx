@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function getRedirectPath(roles: string[]) {
+  function getDashboardPath(roles: string[]) {
     if (roles.includes("super_admin") || roles.includes("admin")) {
       return "/admin/dashboard";
     }
@@ -24,6 +25,24 @@ export default function LoginPage() {
     }
 
     return "/";
+  }
+
+  function getSafeReturnUrl() {
+    const returnUrl = searchParams.get("returnUrl");
+
+    if (!returnUrl) {
+      return null;
+    }
+
+    if (!returnUrl.startsWith("/") || returnUrl.startsWith("//")) {
+      return null;
+    }
+
+    if (!returnUrl.startsWith("/verify/")) {
+      return null;
+    }
+
+    return returnUrl;
   }
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -55,9 +74,15 @@ export default function LoginPage() {
       }
 
       const roles: string[] = data.user?.roles || [];
-      const redirectPath = getRedirectPath(roles);
+      const safeReturnUrl = getSafeReturnUrl();
 
-      router.push(redirectPath);
+      if (safeReturnUrl) {
+        router.push(safeReturnUrl);
+        router.refresh();
+        return;
+      }
+
+      router.push(getDashboardPath(roles));
       router.refresh();
     } catch {
       setError("Something went wrong during login.");
@@ -67,19 +92,67 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ background: "#fbf7ff", minHeight: "100vh" }}>
+    <main className="login-page">
+      <style jsx>{`
+        .login-page {
+          min-height: 100vh;
+          background: #f4f7fc;
+          display: flex;
+          align-items: center;
+        }
+
+        .login-card {
+          background: #ffffff;
+          border: 1px solid #dbe7f8;
+          border-radius: 16px;
+          box-shadow: 0 16px 38px rgba(16, 42, 67, 0.08);
+          padding: 34px;
+        }
+
+        .brand-label {
+          color: #0d6efd;
+          font-weight: 800;
+          font-size: 0.78rem;
+          text-transform: uppercase;
+          letter-spacing: 0.1em;
+        }
+
+        .secure-note {
+          background: #f5f9ff;
+          border: 1px solid #dbe7f8;
+          border-radius: 8px;
+          color: #52667a;
+          font-size: 0.86rem;
+          padding: 11px 13px;
+        }
+
+        .form-control {
+          min-height: 48px;
+        }
+      `}</style>
+
       <div className="container py-5">
         <div className="row justify-content-center">
-          <div className="col-md-6 col-lg-5">
-            <div className="card border-0 shadow-lg rounded-5 p-4">
+          <div className="col-md-7 col-lg-5">
+            <div className="login-card">
               <div className="text-center mb-4">
-                <h2 className="fw-bold" style={{ color: "#7b4dff" }}>
+                <div className="brand-label mb-2">CareAble</div>
+
+                <h1 className="h2 fw-bold text-primary mb-2">
                   Welcome Back
-                </h2>
-                <p className="text-secondary">
-                  Sign in to continue your CareAble journey.
+                </h1>
+
+                <p className="text-muted mb-0">
+                  Sign in to continue securely.
                 </p>
               </div>
+
+              {getSafeReturnUrl() && (
+                <div className="secure-note mb-4">
+                  Login is required to view protected certificate verification
+                  details.
+                </div>
+              )}
 
               {error && <div className="alert alert-danger">{error}</div>}
 
@@ -88,18 +161,22 @@ export default function LoginPage() {
                   <label className="form-label fw-semibold">
                     Email Address
                   </label>
+
                   <input
                     name="email"
                     type="email"
-                    className="form-control rounded-4"
+                    className="form-control"
                     placeholder="Enter your email"
+                    autoComplete="email"
                     required
                   />
                 </div>
 
                 <div className="mb-3">
                   <div className="d-flex justify-content-between align-items-center">
-                    <label className="form-label fw-semibold">Password</label>
+                    <label className="form-label fw-semibold">
+                      Password
+                    </label>
 
                     <Link
                       href="/forgot-password"
@@ -112,22 +189,23 @@ export default function LoginPage() {
                   <input
                     name="password"
                     type="password"
-                    className="form-control rounded-4"
+                    className="form-control"
                     placeholder="Enter your password"
+                    autoComplete="current-password"
                     required
                   />
                 </div>
 
                 <button
                   type="submit"
-                  className="btn btn-primary w-100 rounded-pill py-2"
+                  className="btn btn-primary w-100 py-2 mt-2"
                   disabled={loading}
                 >
                   {loading ? "Logging in..." : "Login"}
                 </button>
               </form>
 
-              <p className="text-center mt-4 mb-0">
+              <p className="text-center text-muted mt-4 mb-0">
                 New to CareAble?{" "}
                 <Link
                   href="/register"

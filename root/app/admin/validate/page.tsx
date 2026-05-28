@@ -48,7 +48,7 @@ export default function CertificateValidatePage() {
     const formData = new FormData(event.currentTarget);
 
     try {
-      const response = await fetch("/api/certificates/validate", {
+      const response = await fetch("/api/carer/certificate/validate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -82,13 +82,19 @@ export default function CertificateValidatePage() {
         <div className="container">
           <div className="row justify-content-center">
             <div className="col-lg-9">
-              <div className="text-center mb-4">
-                <h1 className="fw-bold text-primary mb-2">
-                  Validate Certificate
-                </h1>
-                <p className="text-muted mb-0">
-                  Enter a CareAble certificate ID to confirm authenticity.
-                </p>
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+                <div>
+                  <h1 className="fw-bold text-primary mb-1">
+                    Validate Certificate
+                  </h1>
+                  <p className="text-muted mb-0">
+                    Enter a CareAble certificate ID to confirm authenticity.
+                  </p>
+                </div>
+
+                <Link href="/admin/dashboard" className="btn btn-outline-primary">
+                  Back to Dashboard
+                </Link>
               </div>
 
               <div className="card border-0 shadow-sm mb-4">
@@ -141,7 +147,8 @@ export default function CertificateValidatePage() {
                         </h2>
 
                         <p className="text-muted mb-0">
-                          This certificate was issued by CareAble.
+                          This certificate was issued by CareAble and matches a
+                          completed carer assessment.
                         </p>
                       </div>
 
@@ -204,25 +211,19 @@ export default function CertificateValidatePage() {
                             key={area.domainId}
                             className="badge bg-success rounded-pill px-3 py-2"
                           >
-                            {area.title} · {area.score.toFixed(1)}
+                            {area.title} - {area.score.toFixed(1)}
                           </span>
                         ))}
                       </div>
                     ) : (
                       <p className="text-muted mb-0">
-                        No top capability areas above 4.0 were recorded for
-                        this certificate.
+                        No top capability areas above 4.0 were recorded for this
+                        certificate.
                       </p>
                     )}
                   </div>
                 </div>
               )}
-
-              <div className="text-center mt-4">
-                <Link href="/" className="text-decoration-none">
-                  Back to Home
-                </Link>
-              </div>
             </div>
           </div>
         </div>

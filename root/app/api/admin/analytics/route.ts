@@ -2,6 +2,11 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 
+type ScoreDistribution = {
+  score: number;
+  count: number;
+};
+
 type DomainAnalytics = {
   domainId: string;
   domainTitle: string;
@@ -13,6 +18,7 @@ type DomainAnalytics = {
   strengthPercent: number;
   growthPercent: number;
   supportPercent: number;
+  scoreDistribution: ScoreDistribution[];
 };
 
 async function requireAdmin() {
@@ -75,6 +81,15 @@ function percent(part: number, total: number) {
   return Math.round((part / total) * 100);
 }
 
+function createScoreDistribution(scores: number[]): ScoreDistribution[] {
+  return [1, 2, 3, 4, 5].map((score) => ({
+    score,
+    count: scores.filter(
+      (recordedScore) => Math.round(recordedScore) === score
+    ).length,
+  }));
+}
+
 export async function GET() {
   try {
     const admin = await requireAdmin();
@@ -106,7 +121,6 @@ export async function GET() {
         status: "COMPLETED",
       },
       include: {
-        user: true,
         questionnaire: {
           include: {
             domains: {
@@ -153,7 +167,9 @@ export async function GET() {
       attempt.questionnaire.domains.forEach((domain) => {
         const numericResponses = domain.questions
           .map((question) => Number(responseMap.get(question.id)))
-          .filter((value) => Number.isFinite(value) && value >= 1 && value <= 5);
+          .filter(
+            (value) => Number.isFinite(value) && value >= 1 && value <= 5
+          );
 
         if (numericResponses.length === 0) {
           return;
@@ -163,26 +179,29 @@ export async function GET() {
           numericResponses.reduce((total, value) => total + value, 0) /
           numericResponses.length;
 
-        const current = domainMap.get(domain.id) || {
+        const currentDomain = domainMap.get(domain.id) || {
           domainId: domain.id,
           domainTitle: domain.title,
           scores: [],
         };
 
-        current.scores.push(Number(domainAverage.toFixed(1)));
-        domainMap.set(domain.id, current);
+        currentDomain.scores.push(Number(domainAverage.toFixed(1)));
+        domainMap.set(domain.id, currentDomain);
       });
     });
 
     const domainAnalytics: DomainAnalytics[] = Array.from(domainMap.values())
       .map((domain) => {
         const completedCarers = domain.scores.length;
+
         const strengthCount = domain.scores.filter(
           (score) => capabilityBucket(score) === "strength"
         ).length;
+
         const growthCount = domain.scores.filter(
           (score) => capabilityBucket(score) === "growth"
         ).length;
+
         const supportCount = domain.scores.filter(
           (score) => capabilityBucket(score) === "support"
         ).length;
@@ -204,18 +223,18 @@ export async function GET() {
           strengthPercent: percent(strengthCount, completedCarers),
           growthPercent: percent(growthCount, completedCarers),
           supportPercent: percent(supportCount, completedCarers),
+          scoreDistribution: createScoreDistribution(domain.scores),
         };
       })
-      .sort((a, b) => b.averageScore - a.averageScore);
+      .sort((firstDomain, secondDomain) => {
+        return secondDomain.averageScore - firstDomain.averageScore;
+      });
 
     const totalCompletedAttempts = completedAttempts.length;
+
     const uniqueCompletedCarers = new Set(
       completedAttempts.map((attempt) => attempt.userId)
     ).size;
-
-    const allDomainScores = domainAnalytics.flatMap((domain) =>
-      Array(domain.completedCarers).fill(domain.averageScore)
-    );
 
     const overallAverage =
       domainAnalytics.length === 0
@@ -226,24 +245,30 @@ export async function GET() {
           ) / domainAnalytics.length;
 
     const topDomain = domainAnalytics[0] || null;
+
     const supportDomain =
       [...domainAnalytics].sort(
-        (a, b) => b.supportPercent - a.supportPercent
+        (firstDomain, secondDomain) =>
+          secondDomain.supportPercent - firstDomain.supportPercent
       )[0] || null;
 
     const totalStrength = domainAnalytics.reduce(
       (total, domain) => total + domain.strengthCount,
       0
     );
+
     const totalGrowth = domainAnalytics.reduce(
       (total, domain) => total + domain.growthCount,
       0
     );
+
     const totalSupport = domainAnalytics.reduce(
       (total, domain) => total + domain.supportCount,
       0
     );
-    const totalBuckets = totalStrength + totalGrowth + totalSupport;
+
+    const totalCapabilityResults =
+      totalStrength + totalGrowth + totalSupport;
 
     return NextResponse.json({
       summary: {
@@ -253,9 +278,9 @@ export async function GET() {
         overallAverageScore: Number(overallAverage.toFixed(1)),
         topDomain,
         supportDomain,
-        strengthPercent: percent(totalStrength, totalBuckets),
-        growthPercent: percent(totalGrowth, totalBuckets),
-        supportPercent: percent(totalSupport, totalBuckets),
+        strengthPercent: percent(totalStrength, totalCapabilityResults),
+        growthPercent: percent(totalGrowth, totalCapabilityResults),
+        supportPercent: percent(totalSupport, totalCapabilityResults),
       },
       domainAnalytics,
     });

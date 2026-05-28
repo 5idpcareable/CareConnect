@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 
@@ -8,6 +9,56 @@ type DomainScore = {
   capabilityLevel: string;
   capabilityDescription: string;
 };
+
+type Verifier = {
+  id: string;
+  roles: string[];
+};
+
+async function requireAuthenticatedVerifier(): Promise<Verifier | null> {
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get("careable_session")?.value;
+
+  if (!sessionId) {
+    return null;
+  }
+
+  const session = await prisma.session.findUnique({
+    where: {
+      id: sessionId,
+    },
+    include: {
+      user: {
+        include: {
+          roles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session?.user) {
+    return null;
+  }
+
+  const roles = session.user.roles.map((userRole) => userRole.role.name);
+
+  const canViewCertificate = roles.some((role) =>
+    ["carer", "employer", "admin", "super_admin"].includes(role)
+  );
+
+  if (!canViewCertificate) {
+    return null;
+  }
+
+  return {
+    id: session.user.id,
+    roles,
+  };
+}
 
 function getCapability(score: number) {
   if (score >= 4) {
@@ -32,21 +83,40 @@ function getCapability(score: number) {
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const { certificateId } = body as {
-      certificateId?: string;
-    };
+    const verifier = await requireAuthenticatedVerifier();
 
-    if (!certificateId || certificateId.trim().length === 0) {
+    if (!verifier) {
       return NextResponse.json(
-        { message: "Certificate ID is required." },
+        {
+          valid: false,
+          requiresLogin: true,
+          message: "Please login to view certificate verification details.",
+        },
+        { status: 401 }
+      );
+    }
+
+    const body = await request.json();
+
+    const certificateId =
+      typeof body.certificateId === "string"
+        ? body.certificateId.trim()
+        : "";
+
+    if (!certificateId) {
+      return NextResponse.json(
+        {
+          valid: false,
+          message: "Certificate ID is required.",
+        },
         { status: 400 }
       );
     }
 
-    const completedAttempt = await prisma.assessmentAttempt.findUnique({
+    const completedAttempt = await prisma.assessmentAttempt.findFirst({
       where: {
-        id: certificateId.trim(),
+        id: certificateId,
+        status: "COMPLETED",
       },
       include: {
         user: true,
@@ -79,13 +149,32 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!completedAttempt || completedAttempt.status !== "COMPLETED") {
+    if (!completedAttempt) {
       return NextResponse.json(
         {
           valid: false,
           message: "Certificate ID was not found or is not completed.",
         },
         { status: 404 }
+      );
+    }
+
+    const isCarer = verifier.roles.includes("carer");
+    const isPrivilegedVerifier = verifier.roles.some((role) =>
+      ["employer", "admin", "super_admin"].includes(role)
+    );
+
+    if (
+      isCarer &&
+      !isPrivilegedVerifier &&
+      completedAttempt.userId !== verifier.id
+    ) {
+      return NextResponse.json(
+        {
+          valid: false,
+          message: "You can only view your own certificate details.",
+        },
+        { status: 403 }
       );
     }
 
@@ -121,11 +210,21 @@ export async function POST(request: Request) {
           capabilityDescription: capability.capabilityDescription,
         };
       })
-      .filter((domainScore): domainScore is DomainScore => Boolean(domainScore));
+      .filter((domainScore): domainScore is DomainScore =>
+        Boolean(domainScore)
+      );
 
-    const topCapabilityAreas = domainScores.filter(
-      (domainScore) => domainScore.score >= 4
-    );
+    const overallScore =
+      domainScores.length > 0
+        ? Number(
+            (
+              domainScores.reduce((total, domain) => total + domain.score, 0) /
+              domainScores.length
+            ).toFixed(1)
+          )
+        : 0;
+
+    const overallCapability = getCapability(overallScore);
 
     return NextResponse.json({
       valid: true,
@@ -135,7 +234,9 @@ export async function POST(request: Request) {
         assessmentTitle: completedAttempt.questionnaire.title,
         completionDate: completedAttempt.completedAt,
         domainsCompleted: domainScores.length,
-        topCapabilityAreas,
+        overallScore,
+        overallOutcome: overallCapability.capabilityLevel,
+        domainScores,
         status: "Verified",
       },
     });
@@ -143,7 +244,10 @@ export async function POST(request: Request) {
     console.error("Certificate validation error:", error);
 
     return NextResponse.json(
-      { message: "Something went wrong validating certificate." },
+      {
+        valid: false,
+        message: "Something went wrong validating certificate.",
+      },
       { status: 500 }
     );
   }

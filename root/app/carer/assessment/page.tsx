@@ -472,20 +472,28 @@ export default function CarerAssessmentPage() {
         .domain-tab {
           border: 1px solid #dee2e6;
           background: #ffffff;
+          color: #212529;
           transition: box-shadow 0.2s ease, transform 0.2s ease,
-            border-color 0.2s ease;
+            border-color 0.2s ease, background-color 0.2s ease;
         }
 
         .domain-tab:hover {
           box-shadow: 0 12px 28px rgba(13, 110, 253, 0.14);
           transform: translateY(-2px);
           border-color: #0d6efd;
+          background: #eef5ff;
         }
 
         .domain-tab-active {
           background: #0d6efd;
           color: #ffffff;
           border-color: #0d6efd;
+        }
+
+        .domain-tab-saved {
+          background: #e9f8ef;
+          color: #146c43;
+          border-color: #75b798;
         }
 
         .question-card {
@@ -565,7 +573,11 @@ export default function CarerAssessmentPage() {
                       key={domain.id}
                       type="button"
                       className={`btn domain-tab rounded-pill px-4 ${
-                        isActive ? "domain-tab-active" : ""
+                        isActive
+                          ? "domain-tab-active"
+                          : isSaved
+                          ? "domain-tab-saved"
+                          : ""
                       }`}
                       onClick={() => {
                         setActiveDomainId(domain.id);
