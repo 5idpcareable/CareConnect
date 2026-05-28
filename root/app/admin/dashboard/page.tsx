@@ -32,21 +32,24 @@ const primaryModules: AdminModule[] = [
   },
   {
     title: "Questionnaires",
-    description: "Build domains, questions, visibility rules, and assessment sets.",
+    description:
+      "Build domains, questions, visibility rules, and assessment sets.",
     href: "/admin/questionnaires",
     action: "Open Builder",
     shortCode: "QB",
   },
   {
     title: "Assessments",
-    description: "Monitor progress, completed attempts, and carer assessment records.",
+    description:
+      "Monitor progress, completed attempts, and carer assessment records.",
     href: "/admin/assessments",
     action: "Review Assessments",
     shortCode: "AS",
   },
   {
     title: "Certificates",
-    description: "Look up and validate issued certificate IDs for external checks.",
+    description:
+      "Look up and validate issued certificate IDs for external checks.",
     href: "/admin/validate",
     action: "Validate IDs",
     shortCode: "CV",
@@ -166,6 +169,8 @@ export default function AdminDashboardPage() {
           border-radius: 10px;
           background: #ffffff;
           box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+          display: flex;
+          flex-direction: column;
           transition:
             transform 0.18s ease,
             box-shadow 0.18s ease,
@@ -191,6 +196,10 @@ export default function AdminDashboardPage() {
           font-weight: 800;
         }
 
+        .module-description {
+          min-height: 72px;
+        }
+
         .module-action {
           min-width: 150px;
         }
@@ -213,7 +222,31 @@ export default function AdminDashboardPage() {
         }
 
         .admin-actions {
-          min-width: 210px;
+          min-width: 235px;
+        }
+
+        .settings-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid #dee6f2;
+          background: #f8faff;
+          color: #36506b;
+          border-radius: 6px;
+          text-decoration: none;
+          font-size: 0.88rem;
+          font-weight: 600;
+          min-height: 38px;
+          transition:
+            color 0.18s ease,
+            border-color 0.18s ease,
+            background 0.18s ease;
+        }
+
+        .settings-link:hover {
+          color: #0d6efd;
+          border-color: #b7d3ff;
+          background: #eef5ff;
         }
 
         @media (max-width: 991px) {
@@ -223,6 +256,10 @@ export default function AdminDashboardPage() {
 
           .module-action {
             width: 100%;
+          }
+
+          .module-description {
+            min-height: auto;
           }
         }
       `}</style>
@@ -234,14 +271,13 @@ export default function AdminDashboardPage() {
               <div>
                 <div className="d-flex flex-wrap align-items-center gap-2 mb-3">
                   <span className="section-label">CareAble Admin Console</span>
+
                   <span className="role-pill">
                     {isSuperAdmin ? "Super Admin" : "Admin"}
                   </span>
                 </div>
 
-                <h1 className="fw-bold text-primary mb-2">
-                  Admin Dashboard
-                </h1>
+                <h1 className="fw-bold text-primary mb-2">Admin Dashboard</h1>
 
                 <p className="text-muted mb-0" style={{ maxWidth: "760px" }}>
                   Welcome back, {user.firstName}. Use this workspace to manage
@@ -258,6 +294,10 @@ export default function AdminDashboardPage() {
                 <Link href="/admin/analytics" className="btn btn-outline-primary">
                   View Analytics
                 </Link>
+
+                <Link href="/admin/profile" className="btn btn-outline-primary">
+                  Account Settings
+                </Link>
               </div>
             </div>
           </section>
@@ -273,20 +313,24 @@ export default function AdminDashboardPage() {
             {primaryModules.map((module) => (
               <div className="col-md-6 col-xl-3" key={module.href}>
                 <div className="module-card h-100 p-4">
-                  <div className="d-flex align-items-start justify-content-between gap-3 mb-3">
+                  <div className="mb-3">
                     <span className="module-code">{module.shortCode}</span>
                   </div>
 
                   <h5 className="fw-bold mb-2">{module.title}</h5>
 
-                  <p className="text-muted mb-4">{module.description}</p>
+                  <p className="text-muted module-description mb-4">
+                    {module.description}
+                  </p>
 
-                  <Link
-                    href={module.href}
-                    className="btn btn-outline-primary btn-sm module-action"
-                  >
-                    {module.action}
-                  </Link>
+                  <div className="mt-auto">
+                    <Link
+                      href={module.href}
+                      className="btn btn-outline-primary btn-sm module-action"
+                    >
+                      {module.action}
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -295,9 +339,10 @@ export default function AdminDashboardPage() {
           <div className="row g-3">
             <div className={isSuperAdmin ? "col-lg-7" : "col-lg-12"}>
               <section className="wide-panel h-100 p-4">
-                <div className="d-flex flex-column flex-lg-row justify-content-between gap-4">
+                <div className="d-flex flex-column flex-lg-row justify-content-between gap-4 h-100">
                   <div>
                     <span className="section-label">Insights</span>
+
                     <h3 className="h4 fw-bold mt-1 mb-2">
                       Analytics & Reporting
                     </h3>
@@ -309,12 +354,12 @@ export default function AdminDashboardPage() {
 
                     <div className="d-flex flex-wrap gap-2">
                       <span className="quick-link">Domain trends</span>
-                      <span className="quick-link">Capability heatmap</span>
+                      <span className="quick-link">Care pathway heatmap</span>
                       <span className="quick-link">Completion tracking</span>
                     </div>
                   </div>
 
-                  <div className="d-flex align-items-lg-center">
+                  <div className="d-flex align-items-lg-center mt-auto mt-lg-0">
                     <Link
                       href="/admin/analytics"
                       className="btn btn-primary px-4 module-action"
@@ -330,6 +375,7 @@ export default function AdminDashboardPage() {
               <div className="col-lg-5">
                 <section className="wide-panel h-100 p-4">
                   <span className="section-label">Access Control</span>
+
                   <h3 className="h4 fw-bold mt-1 mb-2">
                     Super Admin Reviews
                   </h3>
