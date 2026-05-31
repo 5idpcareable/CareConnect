@@ -64,6 +64,10 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
           gap: 7px;
         }
 
+        .matrix-row {
+          display: contents;
+        }
+
         .matrix-heading {
           color: #66788a;
           font-size: 0.72rem;
@@ -218,9 +222,8 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
           <div className="matrix-heading">Support</div>
 
           {domains.map((domain) => (
-            <>
+            <div key={domain.domainId} className="matrix-row">
               <button
-                key={`${domain.domainId}-domain`}
                 type="button"
                 className={`domain-button ${
                   selectedDomain?.domainId === domain.domainId
@@ -233,7 +236,6 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
               </button>
 
               <button
-                key={`${domain.domainId}-strength`}
                 type="button"
                 className="matrix-cell"
                 style={{
@@ -249,7 +251,6 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
               </button>
 
               <button
-                key={`${domain.domainId}-growth`}
                 type="button"
                 className="matrix-cell"
                 style={{
@@ -262,7 +263,6 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
               </button>
 
               <button
-                key={`${domain.domainId}-support`}
                 type="button"
                 className="matrix-cell"
                 style={{
@@ -273,7 +273,7 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
               >
                 {domain.supportPercent}%
               </button>
-            </>
+            </div>
           ))}
         </div>
 
@@ -284,9 +284,11 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
 
             <div className="score-summary">
               <small className="text-muted d-block">Average Score</small>
+
               <span className="average-score">
                 {selectedDomain.averageScore.toFixed(1)}
               </span>
+
               <span className="text-muted"> / 5</span>
 
               <small className="text-muted d-block mt-2">
@@ -300,6 +302,7 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
                 <span>Strength area</span>
                 <strong>{selectedDomain.strengthPercent}%</strong>
               </div>
+
               <div className="track">
                 <div
                   className="fill fill-strength"
@@ -313,6 +316,7 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
                 <span>Growth area</span>
                 <strong>{selectedDomain.growthPercent}%</strong>
               </div>
+
               <div className="track">
                 <div
                   className="fill fill-growth"
@@ -326,6 +330,7 @@ export default function OutcomeMatrix({ domains }: OutcomeMatrixProps) {
                 <span>Support area</span>
                 <strong>{selectedDomain.supportPercent}%</strong>
               </div>
+
               <div className="track">
                 <div
                   className="fill fill-support"
