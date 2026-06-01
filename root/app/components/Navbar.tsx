@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type User = {
@@ -44,6 +43,7 @@ const employerLinks: NavItem[] = [
 
 export default function Navbar() {
   const pathname = usePathname();
+  const router = useRouter();
 
   const [user, setUser] = useState<User | null>(null);
   const [checkedAuth, setCheckedAuth] = useState(false);
@@ -145,11 +145,21 @@ export default function Navbar() {
     return pathname === pagePath || pathname.startsWith(`${pagePath}/`);
   }
 
+  function goToPage(href: string) {
+    setMobileOpen(false);
+
+    if (href.includes("#")) {
+      window.location.href = href;
+      return;
+    }
+
+    router.push(href);
+  }
+
   const isAdmin =
     user?.roles.includes("admin") || user?.roles.includes("super_admin");
 
   const isEmployer = !isAdmin && user?.roles.includes("employer");
-
   const isCarer = !isAdmin && !isEmployer && user?.roles.includes("carer");
 
   let navigationLinks = publicLinks;
@@ -169,7 +179,7 @@ export default function Navbar() {
           position: sticky;
           top: 0;
           z-index: 100;
-          background: rgba(255, 255, 255, 0.88);
+          background: rgba(255, 255, 255, 0.94);
           backdrop-filter: blur(22px);
           border-bottom: 1px solid rgba(226, 232, 240, 0.82);
           transition:
@@ -191,32 +201,23 @@ export default function Navbar() {
           min-height: 76px;
         }
 
-        .brand {
+        .logo-button {
+          border: 0;
+          background: transparent;
+          padding: 0;
           display: inline-flex;
           align-items: center;
-          gap: 10px;
-          color: #13243d;
-          font-size: 1.24rem;
-          font-weight: 750;
-          text-decoration: none;
-          white-space: nowrap;
         }
 
-        .brand-mark {
-          width: 40px;
-          height: 40px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          color: #ffffff;
-          background: #2563eb;
-          font-size: 1.05rem;
+        .logo-text {
+          color: #10233f;
+          font-size: 1.45rem;
           font-weight: 800;
-          box-shadow: 0 9px 19px rgba(37, 99, 235, 0.2);
+          letter-spacing: 0;
+          line-height: 1;
         }
 
-        .brand-word span {
+        .logo-text span {
           color: #2563eb;
         }
 
@@ -226,48 +227,50 @@ export default function Navbar() {
           transform: translateX(-50%);
           display: flex;
           align-items: center;
-          gap: 28px;
+          gap: 12px;
         }
 
-        .nav-item-link {
-          position: relative;
-          padding: 13px 0;
+        .nav-button {
+          min-height: 40px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0 18px;
+          border: 1px solid #dce7f6;
+          border-radius: 10px;
           color: #52657b;
-          font-size: 0.93rem;
-          font-weight: 550;
-          text-decoration: none;
-          transition: color 0.18s ease;
-        }
-
-        .nav-item-link:hover,
-        .nav-item-link.active {
-          color: #2563eb;
-        }
-
-        .nav-item-link.active {
-          font-weight: 650;
-        }
-
-        .nav-item-link::after {
-          content: "";
-          position: absolute;
-          left: 0;
-          right: 0;
-          bottom: 3px;
-          height: 2px;
-          border-radius: 999px;
-          background: #2563eb;
-          opacity: 0;
-          transform: translateY(4px);
+          background: #ffffff;
+          font-size: 0.91rem;
+          font-weight: 700;
+          white-space: nowrap;
+          box-shadow: 0 4px 12px rgba(15, 23, 42, 0.03);
           transition:
-            opacity 0.18s ease,
+            color 0.18s ease,
+            background 0.18s ease,
+            border-color 0.18s ease,
+            box-shadow 0.18s ease,
             transform 0.18s ease;
         }
 
-        .nav-item-link:hover::after,
-        .nav-item-link.active::after {
-          opacity: 1;
-          transform: translateY(0);
+        .nav-button:hover {
+          color: #2563eb;
+          border-color: #bfd2ff;
+          background: #f6faff;
+          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.08);
+          transform: translateY(-1px);
+        }
+
+        .nav-button-active {
+          color: #ffffff;
+          background: #2563eb;
+          border-color: #2563eb;
+          box-shadow: 0 9px 18px rgba(37, 99, 235, 0.2);
+        }
+
+        .nav-button-active:hover {
+          color: #ffffff;
+          background: #1d4ed8;
+          border-color: #1d4ed8;
         }
 
         .desktop-actions {
@@ -287,7 +290,7 @@ export default function Navbar() {
           background: #f5f8fd;
           border: 1px solid #e2eaf6;
           font-size: 0.89rem;
-          font-weight: 600;
+          font-weight: 700;
         }
 
         .user-initial {
@@ -311,9 +314,9 @@ export default function Navbar() {
           align-items: center;
           justify-content: center;
           padding: 0 18px;
-          border-radius: 9px;
+          border-radius: 10px;
           font-size: 0.9rem;
-          font-weight: 600;
+          font-weight: 700;
           text-decoration: none;
           transition:
             color 0.18s ease,
@@ -325,34 +328,35 @@ export default function Navbar() {
 
         .login-action {
           color: #2563eb;
-          background: transparent;
-          border: 1px solid #d1ddf2;
+          background: #ffffff;
+          border: 1px solid #cbdcf8;
         }
 
         .login-action:hover {
           color: #2563eb;
           background: #f5f9ff;
           border-color: #b9d0ff;
+          transform: translateY(-1px);
         }
 
         .register-action {
           color: #ffffff;
-          background: #2563eb;
-          border: 1px solid #2563eb;
-          box-shadow: 0 8px 18px rgba(37, 99, 235, 0.16);
+          background: #f59e0b;
+          border: 1px solid #f59e0b;
+          box-shadow: 0 8px 18px rgba(245, 158, 11, 0.18);
         }
 
         .register-action:hover {
           color: #ffffff;
-          background: #1d4ed8;
-          border-color: #1d4ed8;
+          background: #d97706;
+          border-color: #d97706;
           transform: translateY(-1px);
-          box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+          box-shadow: 0 12px 24px rgba(245, 158, 11, 0.24);
         }
 
         .logout-action {
           color: #64748b;
-          background: transparent;
+          background: #ffffff;
           border: 1px solid #dce5f1;
         }
 
@@ -370,7 +374,7 @@ export default function Navbar() {
         .auth-placeholder {
           width: 164px;
           height: 43px;
-          border-radius: 9px;
+          border-radius: 10px;
           background: #f1f5f9;
         }
 
@@ -490,7 +494,7 @@ export default function Navbar() {
           .profile-name {
             color: #14263d;
             font-size: 0.94rem;
-            font-weight: 700;
+            font-weight: 800;
           }
 
           .profile-role {
@@ -500,29 +504,32 @@ export default function Navbar() {
 
           .mobile-links {
             display: grid;
-            gap: 4px;
+            gap: 6px;
             padding: 4px 0;
           }
 
-          .mobile-link {
+          .mobile-nav-button {
+            width: 100%;
             min-height: 46px;
             display: flex;
             align-items: center;
             padding: 0 13px;
-            border-radius: 9px;
+            border: 0;
+            border-radius: 10px;
             color: #52657b;
+            background: #f8fbff;
             font-size: 0.94rem;
-            font-weight: 600;
-            text-decoration: none;
+            font-weight: 700;
+            text-align: left;
             transition:
               color 0.18s ease,
               background 0.18s ease;
           }
 
-          .mobile-link:hover,
-          .mobile-link.active {
-            color: #2563eb;
-            background: #f2f7ff;
+          .mobile-nav-button:hover,
+          .mobile-nav-button-active {
+            color: #ffffff;
+            background: #2563eb;
           }
 
           .mobile-actions {
@@ -546,15 +553,8 @@ export default function Navbar() {
         }
 
         @media (max-width: 575px) {
-          .brand {
-            gap: 8px;
-            font-size: 1.1rem;
-          }
-
-          .brand-mark {
-            width: 35px;
-            height: 35px;
-            border-radius: 10px;
+          .logo-text {
+            font-size: 1.2rem;
           }
 
           .hamburger {
@@ -583,26 +583,34 @@ export default function Navbar() {
       >
         <div className="container position-relative nav-shell">
           <div className="nav-row d-flex align-items-center justify-content-between gap-3">
-            <Link href="/" className="brand">
-              <span className="brand-mark">C</span>
-
-              <span className="brand-word">
+            <button
+              type="button"
+              className="logo-button"
+              onClick={() => goToPage("/")}
+              aria-label="Go to CareAble home"
+            >
+              <span className="logo-text">
                 Care<span>Able</span>
               </span>
-            </Link>
+            </button>
 
             <div className="desktop-links">
-              {navigationLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className={`nav-item-link ${
-                    isCurrentPage(link.href) ? "active" : ""
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navigationLinks.map((link) => {
+                const isActive = isCurrentPage(link.href);
+
+                return (
+                  <button
+                    key={link.label}
+                    type="button"
+                    className={`nav-button ${
+                      isActive ? "nav-button-active" : ""
+                    }`}
+                    onClick={() => goToPage(link.href)}
+                  >
+                    {link.label}
+                  </button>
+                );
+              })}
             </div>
 
             <div className="desktop-actions">
@@ -610,13 +618,21 @@ export default function Navbar() {
 
               {checkedAuth && !user && (
                 <>
-                  <Link href="/login" className="login-action">
+                  <button
+                    type="button"
+                    className="login-action"
+                    onClick={() => goToPage("/login")}
+                  >
                     Login
-                  </Link>
+                  </button>
 
-                  <Link href="/register" className="register-action">
+                  <button
+                    type="button"
+                    className="register-action"
+                    onClick={() => goToPage("/register")}
+                  >
                     Register
-                  </Link>
+                  </button>
                 </>
               )}
 
@@ -646,7 +662,9 @@ export default function Navbar() {
               type="button"
               className={`hamburger ${mobileOpen ? "open" : ""}`}
               onClick={() => setMobileOpen((open) => !open)}
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={
+                mobileOpen ? "Close navigation menu" : "Open navigation menu"
+              }
               aria-expanded={mobileOpen}
               aria-controls="mobile-navigation"
             >
@@ -684,37 +702,41 @@ export default function Navbar() {
                 )}
 
                 <div className="mobile-links">
-                  {navigationLinks.map((link) => (
-                    <Link
-                      key={link.label}
-                      href={link.href}
-                      className={`mobile-link ${
-                        isCurrentPage(link.href) ? "active" : ""
-                      }`}
-                      onClick={() => setMobileOpen(false)}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
+                  {navigationLinks.map((link) => {
+                    const isActive = isCurrentPage(link.href);
+
+                    return (
+                      <button
+                        key={link.label}
+                        type="button"
+                        className={`mobile-nav-button ${
+                          isActive ? "mobile-nav-button-active" : ""
+                        }`}
+                        onClick={() => goToPage(link.href)}
+                      >
+                        {link.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {checkedAuth && !user && (
                   <div className="mobile-actions">
-                    <Link
-                      href="/login"
+                    <button
+                      type="button"
                       className="login-action"
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => goToPage("/login")}
                     >
                       Login
-                    </Link>
+                    </button>
 
-                    <Link
-                      href="/register"
+                    <button
+                      type="button"
                       className="register-action"
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => goToPage("/register")}
                     >
                       Register
-                    </Link>
+                    </button>
                   </div>
                 )}
 

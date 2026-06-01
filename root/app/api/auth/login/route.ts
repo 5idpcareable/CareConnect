@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { verifyPassword } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
+const SESSION_IDLE_MINUTES  = 20;
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -77,9 +79,18 @@ export async function POST(request: Request) {
       );
     }
 
+    await prisma.session.deleteMany({
+      where: {
+        userId: user.id,
+      },
+    });
+
     const session = await prisma.session.create({
       data: {
         userId: user.id,
+        expiresAt: new Date(
+          Date.now() + 1000 * 60 * SESSION_IDLE_MINUTES
+        ),
       },
     });
 

@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { prisma } from "@/app/lib/prisma";
 
+const SESSION_IDLE_MINUTES = 20;
+
 export async function GET() {
   const cookieStore = await cookies();
   const sessionId = cookieStore.get("careable_session")?.value;
@@ -28,8 +30,38 @@ export async function GET() {
   });
 
   if (!session || !session.user) {
-    return NextResponse.json({ user: null }, { status: 401 });
+    const response = NextResponse.json({ user: null }, { status: 401 });
+
+    response.cookies.delete("careable_session");
+
+    return response;
   }
+
+  if (session.expiresAt < new Date()) {
+    await prisma.session.deleteMany({
+      where: {
+        id: sessionId,
+      },
+    });
+
+    const response = NextResponse.json(
+      { user: null, message: "Session expired." },
+      { status: 401 }
+    );
+
+    response.cookies.delete("careable_session");
+
+    return response;
+  }
+
+  await prisma.session.update({
+    where: {
+      id: sessionId,
+    },
+    data: {
+      expiresAt: new Date(Date.now() + 1000 * 60 * SESSION_IDLE_MINUTES),
+    },
+  });
 
   const primaryRole = session.user.roles[0];
 

@@ -274,8 +274,8 @@ export default function Home() {
                   <div className="hero-visual">
                     <div className="image-panel">
                       <img
-                        src="https://images.unsplash.com/photo-1516307365426-bea591f05011?auto=format&fit=crop&w=1100&q=80"
-                        alt="Carer supporting an older person at home"
+                        src="/careable-hero-wide.png"
+                        alt="A carer offering gentle support to an older person at home"
                       />
                       <div className="image-overlay" />
                     </div>

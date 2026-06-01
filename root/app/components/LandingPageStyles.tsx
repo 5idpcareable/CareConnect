@@ -114,7 +114,7 @@ export default function LandingPageStyles() {
         height: 494px;
         border-radius: 24px;
         overflow: hidden;
-        background: #ffffff;
+        background: linear-gradient(180deg, #f8fafc 0%, #edf3fb 100%);
         border: 1px solid rgba(255, 255, 255, 0.9);
         box-shadow: 0 28px 62px rgba(23, 50, 86, 0.16);
       }
@@ -123,6 +123,7 @@ export default function LandingPageStyles() {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: center;
       }
 
       .image-overlay {

@@ -2,9 +2,37 @@ import { NextResponse } from "next/server";
 import { hashPassword } from "@/app/lib/auth";
 import { prisma } from "@/app/lib/prisma";
 
+const SESSION_IDLE_MINUTES = 20;
+
 const publicSignupRoles: Record<string, "carer"> = {
   "1": "carer",
 };
+
+function validatePassword(password: string) {
+  const errors: string[] = [];
+
+  if (password.length < 8) {
+    errors.push("at least 8 characters");
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    errors.push("one uppercase letter");
+  }
+
+  if (!/[a-z]/.test(password)) {
+    errors.push("one lowercase letter");
+  }
+
+  if (!/[0-9]/.test(password)) {
+    errors.push("one number");
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    errors.push("one special character");
+  }
+
+  return errors;
+}
 
 export async function POST(request: Request) {
   try {
@@ -76,9 +104,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (password.length < 8) {
+    const passwordErrors = validatePassword(password);
+
+    if (passwordErrors.length > 0) {
       return NextResponse.json(
-        { message: "Password must be at least 8 characters." },
+        {
+          message: `Password must include ${passwordErrors.join(", ")}.`,
+        },
         { status: 400 }
       );
     }
@@ -141,6 +173,7 @@ export async function POST(request: Request) {
     const session = await prisma.session.create({
       data: {
         userId: user.id,
+        expiresAt: new Date(Date.now() + 1000 * 60 * SESSION_IDLE_MINUTES),
       },
     });
 

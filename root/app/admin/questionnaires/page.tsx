@@ -74,7 +74,7 @@ type QuestionnaireDetail = {
 };
 
 type ActivePanel = "domain" | "question" | "existing";
-type QuestionFilter = "active" | "all";
+type QuestionFilter = "active" | "hidden" | "deleted" | "all";
 type PageSize = "5" | "10" | "15" | "all";
 
 function fullName(user?: UserSummary | null) {
@@ -255,6 +255,16 @@ export default function AdminQuestionnairesPage() {
       questions = questions.filter(
         (question) => question.isVisible && !question.deletedAt
       );
+    }
+
+    if (questionFilter === "hidden") {
+      questions = questions.filter(
+        (question) => !question.isVisible && !question.deletedAt
+      );
+    }
+
+    if (questionFilter === "deleted") {
+      questions = questions.filter((question) => question.deletedAt);
     }
 
     return questions;
@@ -1265,8 +1275,10 @@ export default function AdminQuestionnairesPage() {
                       </select>
                     </div>
 
-                    <div style={{ minWidth: "180px" }}>
-                      <label className="form-label fw-semibold">View</label>
+                    <div style={{ minWidth: "190px" }}>
+                      <label className="form-label fw-semibold">
+                        Question Status
+                      </label>
                       <select
                         className="form-select"
                         value={questionFilter}
@@ -1278,12 +1290,14 @@ export default function AdminQuestionnairesPage() {
                         }}
                       >
                         <option value="active">Visible only</option>
+                        <option value="hidden">Hidden only</option>
+                        <option value="deleted">Deleted only</option>
                         <option value="all">Show all</option>
                       </select>
                     </div>
 
                     <div style={{ minWidth: "120px" }}>
-                      <label className="form-label fw-semibold">Show</label>
+                      <label className="form-label fw-semibold">Rows</label>
                       <select
                         className="form-select"
                         value={questionPageSize}
